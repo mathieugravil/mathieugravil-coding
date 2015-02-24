@@ -10,7 +10,7 @@ def create_table_from_csv(filename,tablename,schema, file_cmd):
   max_lenght= []
   typ = []
   label = []
-  cnx = mysql.connector.connect(user='J0242224', password='Spir@u38', host='localhost',database='cmdb')
+  cnx = mysql.connector.connect(user='username', password='passwd', host='localhost',database='cmdb')
   cursor = cnx.cursor()
   for row in spamReader:
     if ( i == 0):
@@ -61,7 +61,7 @@ def insertfromcsv(schema,tablename,filename,header,file_cmd):
   spamReader = csv.reader(open(filename, newline='\n'), delimiter=';')
   i=0
   fic = open (str(file_cmd), "a")
-  cnx = mysql.connector.connect(user='J0242224', password='Spir@u38', host='localhost',database='cmdb')
+  cnx = mysql.connector.connect(user='username', password='passwd', host='localhost',database='cmdb')
   cursor = cnx.cursor()
   INSERT_CMD=""
   for row in spamReader:
