@@ -14,7 +14,7 @@ from tkinter.ttk	import *	# Widgets avec thèmes
 
 
 
-murl = 'http://omega.rm.corp.local/itg/ppmservices/DemandService?wsdl'
+murl = 'http://omega.local/itg/ppmservices/DemandService?wsdl'
 
 closed="Accept and Close"
 reject="Rework"
@@ -40,7 +40,7 @@ class Action(object):
         self.LUser.pack()
         # User Entry    
         self.User=StringVar()
-        self.User.set("J0242224")
+        self.User.set("user")
         self.user = ttk.Entry(frm, textvariable=self.User)
         
         self.user.pack()
@@ -51,7 +51,7 @@ class Action(object):
         # Password Entry    
         self.Passwd=StringVar()
         self.passwd = ttk.Entry(frm, textvariable=self.Passwd,show='*')
-        self.passwd.insert(0,'SR0*b*nKHb')
+        self.passwd.insert(0,'mypasswd')
         self.passwd.pack()
         
     #Ticket Label    
