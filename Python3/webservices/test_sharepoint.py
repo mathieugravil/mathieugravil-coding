@@ -22,9 +22,9 @@ proxyOpts = {'http': '10.30.39.243:8080'}
 
 
 
-murl='http://portal1.rm.corp.local/dsi/community/urbanistes/_vti_bin/Lists.asmx?wsdl'
-user='MAIN\J0242224'
-passwd='He@rtbleed3'
+murl='http://sharepoint/_vti_bin/Lists.asmx?wsdl'
+user='DOMAIN\user'
+passwd='mypaswd'
 listName='CC1BFE7F-07A5-458E-8163-22A8AEDD6CC9'
 viewName='A014C29D-C4F5-411E-B9E7-A854A8426BC7'
 
