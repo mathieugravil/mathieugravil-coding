@@ -8,19 +8,19 @@ import os
 
 def main():
   arc='UD'
-  SID='P3B'
+  SID='SID'
   os.environ['PATH'] = os.environ['PATH'] + r" ;c:\Program Files (x86)\Oracle\OraCli112\bin"
   os.environ['ORACLE_HOME'] = r"c:\Program Files (x86)\Oracle\OraCli112"
 
     
   filename="result_"+SID+"_"+arc+".log"
   fic = open (filename, "a")
-  sql_cnx = mysql.connector.connect(user='J0242224', password='Spir@u38', host='localhost',database='cmdb', buffered=True)
+  sql_cnx = mysql.connector.connect(user='username', password='passwd', host='localhost',database='cmdb', buffered=True)
   sql_cursor = sql_cnx.cursor()
   sql_cursor1 = sql_cnx.cursor()
   sql_query = ( "SELECT doc FROM test20140908, arch_sid WHERE  test20140908.arch=arch_sid.arch AND SID = %s and arch_sid.arch = %s  and is_prod is null   ")
   sql_cursor.execute(sql_query,(SID, arc))
-  ora_con = cx_Oracle.connect('J0242224/J0242224@10.126.115.52:1500/P3B')
+  ora_con = cx_Oracle.connect('username/passwd@myserver:1500/SID')
   ora_cur1 = ora_con.cursor()
   ora_cur1.prepare ('select distinct(CONNECTION) from SAPSR3.TOAOM WHERE ARCHIV_ID= :rarc')
   ora_cur1.execute(None,{'rarc' : arc })
