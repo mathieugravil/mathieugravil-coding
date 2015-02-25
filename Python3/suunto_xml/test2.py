@@ -25,15 +25,17 @@ def xml2csv(filename):
         sys.exit()
     file = open(filename)
     file.readline() # Skip first line
+    file.readline() # Skip first line
     filecontents = file.read()
     file.close()
 
     print ("Parsing file {0}".format(filename))
-#    doc = xml.dom.minidom.parseString('<?xml version="1.0" encoding="utf-8"?><top>'+filecontents+'</top>')
- #   assert doc != None
-  #  top = doc.getElementsByTagName('top')
-   # assert len(top) == 1
-    #print ("Done.")
+    doc = xml.dom.minidom.parseString('<?xml version="1.0" encoding="utf-8"?><top>'+filecontents+'</top>')
+    assert doc != None
+    Log = doc.getElementsByTagName('Log')
+    assert len(Log) == 1
+    print(Log)
+    print ("Done.")
 
     outputfilename = rootfilename+ '.csv'
     outputfile = open(outputfilename, 'w')
@@ -41,11 +43,12 @@ def xml2csv(filename):
 
       
 
-    root = ET.fromstring('<?xml version="1.0" encoding="utf-8"?><top>'+filecontents+'</top>')
+    #root = ET.fromstring('<?xml version="1.0" encoding="utf-8"?><top>'+filecontents+'</top>')
+    root=Log
     for child in root:
-          if (child.tag == 'header'):
+          if (child.nodeName == 'header'):
               
-              for childheader in child:                  
+              for childheader in child.childNodes:                  
                   if(len(childheader) ==  0 ):
                       print(childheader.tag,  childheader.text )
                       outputfile.write(childheader.tag+";"+childheader.text+"\n")
@@ -68,7 +71,7 @@ def xml2csv(filename):
                       #              periodic : VerticalSpeed , HR , EnergyConsumption , Temperature , SeaLevelPressure , Altitude , Distance , Speed , Time , UTC
                       #
                   
-          elif ( child.tag == 'Samples'):
+          elif ( child.nodeName == 'Samples'):
               line_dict={'SampleType':0,'VerticalSpeed':0 , 'HR':0 , 'EnergyConsumption':0 , 'Temperature':0 , 'SeaLevelPressure':0 , 'Altitude':0 , 'Distance':0 , 'Speed':0 ,'NavType':0 , 'NavValid':0  , 'NavTypeExplanation':0 , 'GPSAltitude':0 , 'GPSHeading':0 , 'GPSSpeed':0 , 'GpsHDOP':0 , 'NumberOfSatellites':0 , 'Latitude':0 , 'Longitude':0 , 'EHPE':0  ,'Time':0 ,'UTC':0}
               headers=''
               for label in line_dict.keys():
