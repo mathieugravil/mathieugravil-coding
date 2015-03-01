@@ -3,6 +3,69 @@ import xml.dom.minidom
 import getopt
 import sys
 import xml.etree.ElementTree as ET
+#import cElementTree as ElementTree
+
+class XmlListConfig(list):
+    def __init__(self, aList):
+        for element in aList:
+            if element:
+                # treat like dict
+                if len(element) == 1 or element[0].tag != element[1].tag:
+                    self.append(XmlDictConfig(element))
+                # treat like list
+                elif element[0].tag == element[1].tag:
+                    self.append(XmlListConfig(element))
+            elif element.text:
+                text = element.text.strip()
+                if text:
+                    self.append(text)
+
+
+class XmlDictConfig(dict):
+    '''
+    Example usage:
+
+    >>> tree = ElementTree.parse('your_file.xml')
+    >>> root = tree.getroot()
+    >>> xmldict = XmlDictConfig(root)
+
+    Or, if you want to use an XML string:
+
+    >>> root = ElementTree.XML(xml_string)
+    >>> xmldict = XmlDictConfig(root)
+
+    And then use xmldict for what it is... a dict.
+    '''
+    def __init__(self, parent_element):
+        if parent_element.items():
+            self.update(dict(parent_element.items()))
+        for element in parent_element:
+            if element:
+                # treat like dict - we assume that if the first two tags
+                # in a series are different, then they are all different.
+                if len(element) == 1 or element[0].tag != element[1].tag:
+                    aDict = XmlDictConfig(element)
+                # treat like list - we assume that if the first two tags
+                # in a series are the same, then the rest are the same.
+                else:
+                    # here, we put the list in dictionary; the key is the
+                    # tag name the list elements all share in common, and
+                    # the value is the list itself 
+                    aDict = {element[0].tag: XmlListConfig(element)}
+                # if the tag has attributes, add those to the dict
+                if element.items():
+                    aDict.update(dict(element.items()))
+                self.update({element.tag: aDict})
+            # this assumes that if you've got an attribute in a tag,
+            # you won't be having any text. This may or may not be a 
+            # good idea -- time will tell. It works for the way we are
+            # currently doing XML configuration files...
+            elif element.items():
+                self.update({element.tag: dict(element.items())})
+            # finally, if there are no child tags and no attributes, extract
+            # the text
+            else:
+                self.update({element.tag: element.text})
 
 
 def usage():
@@ -30,35 +93,27 @@ def xml2csv(filename):
     file.close()
 
     print ("Parsing file {0}".format(filename))
-    doc = xml.dom.minidom.parseString('<?xml version="1.0" encoding="utf-8"?><top>'+filecontents+'</top>')
-    assert doc != None
-    Log = doc.getElementsByTagName('Log')
-    assert len(Log) == 1
-    print(Log)
+    
+    
     print ("Done.")
 
     outputfilename = rootfilename+ '.csv'
     outputfile = open(outputfilename, 'w')
     print ("Creating file {0}".format(outputfilename))
 
-      
+         
 
-    #root = ET.fromstring('<?xml version="1.0" encoding="utf-8"?><top>'+filecontents+'</top>')
-    root=Log
-    for child in root:
-          if (child.nodeName == 'header'):
-              
-              for childheader in child.childNodes:                  
-                  if(len(childheader) ==  0 ):
-                      print(childheader.tag,  childheader.text )
-                      outputfile.write(childheader.tag+";"+childheader.text+"\n")
-                  else:
-                      for child2 in childheader:
-                          if(len(child2) ==  0 ):
-                              print(childheader.tag, child2.tag,  child2.text )
-                              outputfile.write(childheader.tag+" "+child2.tag+";"+childheader.text)
-                       
-                      # HR bat/s => x60.
+    root = ET.fromstring('<?xml version="1.0" encoding="utf-8"?><top>'+filecontents+'</top>')
+    xmldict = XmlDictConfig(root)
+    #dict_keys(['openambitlog'])
+    #dict_keys(['SerialNumber', 'Time', 'Log', 'DeviceInfo', 'version', 'PersonalSettings', 'MovescountId'])
+    #dict_keys(['Samples', 'Header'])
+    #dict_keys(['Descent', 'Altitude', 'Activity', 'PeakTrainingEffect', 'LogItemCount', 'DistanceBeforeCalibrationChange', 'RecoveryTime', 'Unknown2', 'Unknown3', 'Energy', 'ActivityType',
+    #'BatteryChargeAtStart', 'Unknown4', 'Unknown5', 'Ascent', 'Unknown6', 'DateTime', 'Cadence', 'Duration', 'DescentTime', 'Distance', 'Speed', 'Temperature', 'Unknown1', 'AscentTime', 'HR', 'TimeToFirstFix', 'BatteryCharge'])
+
+    #print(xmldict['Header']['HR']['Avg'])      
+    print(xmldict['openambitlog']['Log']['Header']['HR'].keys())      
+                      # HR bat/s => 'x60.
                       # Speed m/s
                       # Duration in s
                       # Ascent in m
@@ -71,30 +126,6 @@ def xml2csv(filename):
                       #              periodic : VerticalSpeed , HR , EnergyConsumption , Temperature , SeaLevelPressure , Altitude , Distance , Speed , Time , UTC
                       #
                   
-          elif ( child.nodeName == 'Samples'):
-              line_dict={'SampleType':0,'VerticalSpeed':0 , 'HR':0 , 'EnergyConsumption':0 , 'Temperature':0 , 'SeaLevelPressure':0 , 'Altitude':0 , 'Distance':0 , 'Speed':0 ,'NavType':0 , 'NavValid':0  , 'NavTypeExplanation':0 , 'GPSAltitude':0 , 'GPSHeading':0 , 'GPSSpeed':0 , 'GpsHDOP':0 , 'NumberOfSatellites':0 , 'Latitude':0 , 'Longitude':0 , 'EHPE':0  ,'Time':0 ,'UTC':0}
-              headers=''
-              for label in line_dict.keys():
-                  if headers == '':
-                      headers=label
-                  else:
-                      headers=headers+";"+label
-              outputfile.write(headers+"\n")
-
-              for Sample in child:
-                  line_dict={'SampleType':0,'VerticalSpeed':0 , 'HR':0 , 'EnergyConsumption':0 , 'Temperature':0 , 'SeaLevelPressure':0 , 'Altitude':0 , 'Distance':0 , 'Speed':0 ,'NavType':0 , 'NavValid':0  , 'NavTypeExplanation':0 , 'GPSAltitude':0 , 'GPSHeading':0 , 'GPSSpeed':0 , 'GpsHDOP':0 , 'NumberOfSatellites':0 , 'Latitude':0 , 'Longitude':0 , 'EHPE':0  ,'Time':0 ,'UTC':0}
-                  if (len(Sample)>1):
-                      for childSample in Sample:
-                          if (len(childSample)== 0 ):
-                              line_dict[childSample.tag]= childSample.text
-                  line=''
-                  for column in line_dict.values():
-                      if line == '':
-                          line=str(column)
-                      else:
-                          line=line+";"+str(column)
-                  #print(line)
-                  outputfile.write(line+"\n")
                   
     outputfile.close
     

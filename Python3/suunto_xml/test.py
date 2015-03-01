@@ -43,7 +43,7 @@ def xml2csv(filename):
 
     root = ET.fromstring('<?xml version="1.0" encoding="utf-8"?><top>'+filecontents+'</top>')
     for child in root:
-          if (child.tag == 'header'):
+          if (child.tag == 'Header'):
               
               for childheader in child:                  
                   if(len(childheader) ==  0 ):
