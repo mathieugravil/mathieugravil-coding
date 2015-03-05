@@ -6,7 +6,7 @@
 
 
 
-function Mydashboard(dashboard_title,label1,nb1,day1,title1,label2,nb2,day2,title2,label3,day3,title5)
+function Mydashboard(dashboard_title,label1,nb1,day1,title1,label2,nb2,day2,title2,label3,nb3,day3,title5,label4,nb4,day4,title4)
 {
 /*	labels5 = new Array()
 	values5 = new Array()
@@ -44,6 +44,46 @@ StandaloneDashboard(function(tdb){
 	//chart2.addSeries (values2);
 	chart2.setPieValues(nb2);
 	db1.addComponent (chart2);
+
+
+	var chart6 = new ChartComponent();
+	chart6.setDimensions (12, 6);	
+	chart6.setCaption(title5);
+	//labelt=[ 201409,201410,201411,201412,201501,201502,201503,201504,201505,201506]
+	chart6.setLabels(label3);
+	var serie=[]
+  
+	for (var i = 0 ; i < label1.length; i++ )
+	{
+		serie[i]=[]
+		temp=label3.slice(0)
+		while(temp.length >0)
+		{
+			var x = temp.shift()
+			if (nb3[i][x]!= null)
+			{
+			serie[i].push(nb3[i][x])
+			}
+			else
+			{
+				serie[i].push(0)
+			}
+		}
+	
+       j=(Math.floor(Math.random() * (randNumMax - randNumMin + 1)) + randNumMin);
+
+       chart6.addSeries (label1[i],label1[i],serie[i],{
+       seriesStacked: true,
+	   seriesColor: color[j],
+        seriesDisplayType: "column"
+         });
+	}
+
+	db1.addComponent (chart6);
+
+
+
+
 	
  // Dashboard 2
     var db2 = new Dashboard();
@@ -74,9 +114,6 @@ StandaloneDashboard(function(tdb){
 	chart5.setCaption(title5);
 	//labelt=[ 201409,201410,201411,201412,201501,201502,201503,201504,201505,201506]
 	chart5.setLabels(label3);
-	chart.setYAxis("", {
-        numberPrefix: "$"
-    });
 	var serie=[]
   
 	for (var i = 0 ; i < label1.length; i++ )
@@ -95,39 +132,93 @@ StandaloneDashboard(function(tdb){
 				serie[i].push(0)
 			}
 		}
-	
        j=(Math.floor(Math.random() * (randNumMax - randNumMin + 1)) + randNumMin);
-
        chart5.addSeries (label1[i],label1[i],serie[i],{
        seriesStacked: true,
 	   seriesColor: color[j],
         seriesDisplayType: "column"
          });
 	}
-/*	
-	serie0=[0,18,36,21.5,31,94,13,0,20,0]
+	db2.addComponent (chart5);
 
-	serie1=[0,21.5,3,5.5,18,11,5.5,21.5,0,0]
-    
-chart5.addSeries (label1[0],label1[0],serie0,{
+// Dashboard 3	
+var db3 = new Dashboard();
+    db3.setDashboardTitle('Resources in days');
+	var chart7 = new ChartComponent();
+	chart7.setDimensions (12, 6);	
+	chart7.setCaption(title4);
+	chart7.setLabels(label3);
+	var serie=[]
+	for (var i = 0 ; i < label4.length; i++ )
+	{
+		serie[i]=[]
+		temp=label3.slice(0)
+		while(temp.length >0)
+		{
+			var x = temp.shift()
+			if (day4[i][x]!= null)
+			{
+			serie[i].push(day4[i][x])
+			}
+			else
+			{
+				serie[i].push(0)
+			}
+		}
+	
+       j=(Math.floor(Math.random() * (randNumMax - randNumMin + 1)) + randNumMin);
+       chart7.addSeries (label4[i].replace("/",""),label4[i],serie[i],{
        seriesStacked: true,
+	   seriesColor: color[j],
         seriesDisplayType: "column"
          });
-    chart5.addSeries (label1[1],label1[1],serie1,{
+	}	
+	db3.addComponent (chart7);
+
+// Dashboard 4
+var db4 = new Dashboard();
+    db4.setDashboardTitle('Resources in tickets');
+	var chart8 = new ChartComponent();
+	chart8.setDimensions (12, 6);	
+	chart8.setCaption(title4);
+	chart8.setLabels(label3);
+	var serie=[]
+	for (var i = 0 ; i < label4.length; i++ )
+	{
+		serie[i]=[]
+		temp=label3.slice(0)
+		while(temp.length >0)
+		{
+			var x = temp.shift()
+			if (nb4[i][x]!= null)
+			{
+			serie[i].push(nb4[i][x])
+			}
+			else
+			{
+				serie[i].push(0)
+			}
+		}
+       j=(Math.floor(Math.random() * (randNumMax - randNumMin + 1)) + randNumMin);
+       chart8.addSeries (label4[i].replace("/",""),label4[i],serie[i],{
        seriesStacked: true,
+	   seriesColor: color[j],
         seriesDisplayType: "column"
-         });	
-		 */
-		 
-	db2.addComponent (chart5);
+         });
+	}
+	db4.addComponent (chart8);
+
 	
-
+	
 	tdb.addDashboardTab(db1, {
-        active: true
-    });
+ });
   tdb.addDashboardTab(db2, {
+	          active: true
     });
-
+	tdb.addDashboardTab(db3, {
+ });
+ tdb.addDashboardTab(db4, {
+ });
 }, {tabbed: true});
 
 }

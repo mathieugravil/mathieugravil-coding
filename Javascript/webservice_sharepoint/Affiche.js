@@ -25,6 +25,10 @@ var area=[];
 var status_day=[];
 var area_day=[];
 var cal_area_day=[[]];
+var cal_area=[[]]
+var cal_aff=[[]]
+var cal_aff_day=[[]]
+
 
 var list_area=[];
 var list_affetation=[];
@@ -38,10 +42,16 @@ for (var i = 0 ; i<list_area.length; i++){
 	area[i]= 0
 	area_day[i] = 0
 	cal_area_day[i]=[];
+	cal_area[i]=[]
 }
 for (var i = 0 ; i<list_status.length; i++){
 	status[i]= 0
 	status_day[i] = 0
+}
+
+for (var i = 0 ; i<list_affetation.length; i++){
+cal_aff[i]=[]
+cal_aff_day[i]=[]		
 }
 
 
@@ -82,11 +92,26 @@ $().SPServices({
 	   if(cal_area_day[list_area.indexOf($(this).attr("ows_Domaine"))][period] != null)
 	   {
 		     cal_area_day[list_area.indexOf($(this).attr("ows_Domaine"))][period] =   cal_area_day[list_area.indexOf($(this).attr("ows_Domaine"))][period]+ parseFloat($(this).attr("ows_CHARGE"))
+			 cal_area[list_area.indexOf($(this).attr("ows_Domaine"))][period] =   cal_area[list_area.indexOf($(this).attr("ows_Domaine"))][period]+ 1
 	   }
 	   else
 	   {
 		  cal_area_day[list_area.indexOf($(this).attr("ows_Domaine"))][period] =  parseFloat($(this).attr("ows_CHARGE")) 
+		  cal_area[list_area.indexOf($(this).attr("ows_Domaine"))][period] =  1 
 	   }
+	    if(cal_aff_day[list_affetation.indexOf($(this).attr("ows_Affetation"))][period] != null)
+	   {
+		     cal_aff_day[list_affetation.indexOf($(this).attr("ows_Affetation"))][period] =   cal_aff_day[list_affetation.indexOf($(this).attr("ows_Affetation"))][period]+ parseFloat($(this).attr("ows_CHARGE"))
+			 cal_aff[list_affetation.indexOf($(this).attr("ows_Affetation"))][period] =   cal_aff[list_affetation.indexOf($(this).attr("ows_Affetation"))][period]+ 1
+	   }
+	   else
+	   {
+		  cal_aff_day[list_affetation.indexOf($(this).attr("ows_Affetation"))][period] =  parseFloat($(this).attr("ows_CHARGE")) 
+		  cal_aff[list_affetation.indexOf($(this).attr("ows_Affetation"))][period] =  1 
+	   }
+	   
+	   
+	   
 	  }
 	   
 	  //=================== END CAL =========================//
@@ -96,7 +121,7 @@ $().SPServices({
 	  list_period.sort()
 	  //console.log(cal_area_day[0].sort())
 	  
-	  Mydashboard('Statistics on tickets', list_area,area,area_day,'Distribution by area for non closed tickets',list_status,status,status_day,'Distribution by STATUS',list_period,cal_area_day,"Planning");
+	  Mydashboard('Statistics on tickets', list_area,area,area_day,'Distribution by area for non closed tickets',list_status,status,status_day,'Distribution by STATUS',list_period,cal_area,cal_area_day,"Planning by area",list_affetation,cal_aff,cal_aff_day,"Planning per resource");
 	/*  var tableHtml = "<table>"
 	  $("#tasksUL").append(tableHtml);
 	for(key in area) { 
