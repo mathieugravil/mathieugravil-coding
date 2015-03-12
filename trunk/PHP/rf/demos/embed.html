@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" type="text/css" href="../static/installer/css/bootstrap.css">
+    <script type="text/javascript" src="../static/installer/js/jquery.min.js"></script>
+    <script type="text/javascript" src="../razorflow.jquery.js"></script>
+    <title></title>
+    <script type="text/javascript">
+        $(function() {
+            var rfObject = $("#newDBTarget").razorflow({
+                url: "/rfdev/demos/sales_dashboard.php",
+                width: '780'
+            }).data('razorflow');
+
+            $("#changeWidth").click(function() {
+                var val = parseInt ($("#widthControl").attr('value'));
+
+                if(val !== NaN) {
+                    rfObject.setWidth(val);
+                }
+            });
+
+            $("#changeHeight").click(function() {
+                var val = parseInt ($("#heightControl").attr('value'));
+
+                if(val !== NaN) {
+                    rfObject.setHeight(val);
+                }
+            });
+        });
+    </script>
+</head>
+<body>
+<div class="container">
+	
+	<div class="row">
+		<div class="span12">
+			<h1>Embed a dashboard using RazorFlow jQuery plugin</h1>
+		</div>
+	</div>
+
+
+	<div class="row">
+		<div class="span12">
+	    	<p>
+	    		In this page, a RazorFlow dashboard has been embedded into a regular HTML page using the <a href="http://razorflow.com/docs/manual/php/concepts/embed.php">RazorFlow jQuery Plugin</a>. This dashboard isn't embedded as an IFrame, but inside a div. Future versions of RazorFlow will allow greater control of the embedded dashboard and allow it to interact with your main web application.
+	    	</p>
+	    	<p>
+	    		You can also change the dimensions of the Dashboard to see the resizing functionality in action.
+	    	</p>
+		</div>
+
+	</div>
+
+	<div class="row">
+		<div class="span2">
+	    	<div class="input-append">
+	    	  <label for="widthControl">Set Width (pixels)</label>
+	    	  <input class="span1" id="widthControl" name="widthControl" type="text" value="800" />
+	    	  <button id="changeWidth" class="btn btn-primary" type="button">Change</button>
+	    	</div>
+
+	    	<div class="input-append">
+	    	  <label for="heightControl">Set Height (pixels)</label>
+	    	  <input class="span1" id="heightControl" name="heightControl" type="text" value="" />
+	    	  <button id="changeHeight" class="btn btn-primary" type="button">Change</button>
+	    	</div>
+		</div>
+		<div class="span10">
+			<div id='newDBTarget'></div>
+		</div>
+	</div>
+</div>
+
+</body>
+</html>
