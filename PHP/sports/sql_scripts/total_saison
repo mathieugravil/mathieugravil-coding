@@ -1,0 +1,60 @@
+ select date_format(date, '%M/%Y'), SEC_TO_TIME(sum(TIME_TO_SEC(duration))) as "temps passe" , 
+sum(calories) as "Calories depensees" , sum(distance) /1000 as "distance(km)" ,
+ format(3600*sum(calories)/sum(TIME_TO_SEC(duration)) , 2) as "Calorie/heure" ,
+count(distinct(date)) as "nb days" , format(sum(calories)/count(distinct(date)),2) as "Cal/day", format(sum(distance) /1000/count(distinct(date)),2) as "km/day", SEC_TO_TIME(sum(TIME_TO_SEC(duration))/count(distinct(date)))as "duration/day", datediff(max(date), min(date)) as "nb days eff" , format(sum(calories)/datediff(max(date), min(date)),2) as "Cal/dayeff", format(sum(distance) /1000/datediff(max(date), min(date)),2) as "km/dayeff", SEC_TO_TIME(sum(TIME_TO_SEC(duration))/datediff(max(date), min(date)))as "duration/dayeff" FROM seances, sport_type WHERE seances.sport_id=sport_type.sport_id AND seances.date <= date_format('2013/09/15','%Y/%m/%d') 
+AND seances.date >= date_format('1981/06/14','%Y/%m/%d') AND seances.sport_id IN ('5', '4', '3', '2', '1' ) 
+GROUP BY  date_format(date, '%M/%Y')
+ ORDER BY date ;
+
+
+# Total saison 
+# Sport par temps passé,
+# Sport par calorie dépensé,  
+# calorie par heure /sport
+# Distance parcourue par sport
+select sport_name, SEC_TO_TIME(sum(TIME_TO_SEC(duration))) as "temps passé" , 
+sum(calories) as "Calories dépensées" ,
+sum(distance) /1000 as "distance(km)" , 
+format(3600*sum(calories)/sum(TIME_TO_SEC(duration)) , 2) as "Calorie/heure"
+FROM seances, sport_type
+WHERE seances.sport_id=sport_type.sport_id
+GROUP BY sport_name
+UNION
+SELECT "TOTAL", SEC_TO_TIME(sum(TIME_TO_SEC(duration))) as "temps passé" , sum(calories) as "Calories dépensées" , 
+sum(distance) /1000 as "distance(km)", 
+format(3600*sum(calories)/sum(TIME_TO_SEC(duration)),2) as "Calorie/heure"
+FROM seances, sport_type
+WHERE seances.sport_id=sport_type.sport_id;
+
+# Répartition du temps dans chaque zone
+select  
+SEC_TO_TIME(sum(TIME_TO_SEC(below))) as "Temps en dessous", 
+SEC_TO_TIME(sum(TIME_TO_SEC(in_zone))) as "Temps dans la zone", 
+SEC_TO_TIME(sum(TIME_TO_SEC(above))) as "Temps au dessus"
+FROM seances, sport_type
+WHERE seances.sport_id=sport_type.sport_id;
+
+# Evolution dans le temps de la répartition du temps dans chaque zone par sport
+select  date,
+SEC_TO_TIME(sum(TIME_TO_SEC(below))) as "Temps en dessous", 
+SEC_TO_TIME(sum(TIME_TO_SEC(in_zone))) as "Temps dans la zone", 
+SEC_TO_TIME(sum(TIME_TO_SEC(above))) as "Temps au dessus"
+FROM seances, sport_type
+WHERE seances.sport_id=sport_type.sport_id
+GROUP BY date;
+
+# Répartition du temps dans chaque zone par sport
+select 
+SEC_TO_TIME(sum(TIME_TO_SEC(below))) as "Temps en dessous", 
+SEC_TO_TIME(sum(TIME_TO_SEC(in_zone))) as "Temps dans la zone", 
+SEC_TO_TIME(sum(TIME_TO_SEC(above))) as "Temps au dessus"
+FROM seances;
+
+#Evolution des distances
+# Evolution Vmoy et VMax
+select sport_name, date,format(avg(Vaverage),2) as " Vitesse moyenne",
+ format(max(Vmaximum),2) as "Vitesse max", 
+format(sum(distance )/1000, 2) as "Distance" 
+FROM seances, sport_type
+WHERE seances.sport_id=sport_type.sport_id
+GROUP BY sport_name, date;
