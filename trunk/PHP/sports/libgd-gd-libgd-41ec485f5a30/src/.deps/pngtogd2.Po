@@ -1,0 +1,106 @@
+pngtogd2.o: pngtogd2.c config.h /ffp/include/stdio.h \
+ /ffp/include/features.h /ffp/include/bits/uClibc_config.h \
+ /ffp/include/bits/uClibc_arch_features.h /ffp/include/sys/cdefs.h \
+ /mnt/HD_a2/ffp/bin/../lib/gcc/arm-ffp-linux-uclibc/4.5.4/include/stddef.h \
+ /ffp/include/bits/types.h /ffp/include/bits/wordsize.h \
+ /ffp/include/bits/kernel_types.h /ffp/include/bits/typesizes.h \
+ /ffp/include/bits/pthreadtypes.h /ffp/include/bits/sched.h \
+ /ffp/include/bits/uClibc_stdio.h /ffp/include/wchar.h \
+ /ffp/include/bits/wchar.h /ffp/include/bits/uClibc_mutex.h \
+ /ffp/include/pthread.h /ffp/include/sched.h /ffp/include/time.h \
+ /ffp/include/bits/time.h /ffp/include/bits/uClibc_clk_tck.h \
+ /ffp/include/signal.h /ffp/include/bits/sigset.h \
+ /ffp/include/bits/initspin.h /ffp/include/bits/sigthread.h \
+ /ffp/include/bits/uClibc_pthread.h \
+ /mnt/HD_a2/ffp/bin/../lib/gcc/arm-ffp-linux-uclibc/4.5.4/include/stdarg.h \
+ /ffp/include/bits/stdio_lim.h /ffp/include/stdlib.h \
+ /ffp/include/sys/types.h /ffp/include/endian.h \
+ /ffp/include/bits/endian.h /ffp/include/sys/select.h \
+ /ffp/include/bits/select.h /ffp/include/sys/sysmacros.h \
+ /ffp/include/alloca.h \
+ /mnt/HD_a2/ffp/bin/../lib/gcc/arm-ffp-linux-uclibc/4.5.4/include/stdint.h \
+ /ffp/include/stdint.h gd.h gd_io.h gdfx.h
+
+config.h:
+
+/ffp/include/stdio.h:
+
+/ffp/include/features.h:
+
+/ffp/include/bits/uClibc_config.h:
+
+/ffp/include/bits/uClibc_arch_features.h:
+
+/ffp/include/sys/cdefs.h:
+
+/mnt/HD_a2/ffp/bin/../lib/gcc/arm-ffp-linux-uclibc/4.5.4/include/stddef.h:
+
+/ffp/include/bits/types.h:
+
+/ffp/include/bits/wordsize.h:
+
+/ffp/include/bits/kernel_types.h:
+
+/ffp/include/bits/typesizes.h:
+
+/ffp/include/bits/pthreadtypes.h:
+
+/ffp/include/bits/sched.h:
+
+/ffp/include/bits/uClibc_stdio.h:
+
+/ffp/include/wchar.h:
+
+/ffp/include/bits/wchar.h:
+
+/ffp/include/bits/uClibc_mutex.h:
+
+/ffp/include/pthread.h:
+
+/ffp/include/sched.h:
+
+/ffp/include/time.h:
+
+/ffp/include/bits/time.h:
+
+/ffp/include/bits/uClibc_clk_tck.h:
+
+/ffp/include/signal.h:
+
+/ffp/include/bits/sigset.h:
+
+/ffp/include/bits/initspin.h:
+
+/ffp/include/bits/sigthread.h:
+
+/ffp/include/bits/uClibc_pthread.h:
+
+/mnt/HD_a2/ffp/bin/../lib/gcc/arm-ffp-linux-uclibc/4.5.4/include/stdarg.h:
+
+/ffp/include/bits/stdio_lim.h:
+
+/ffp/include/stdlib.h:
+
+/ffp/include/sys/types.h:
+
+/ffp/include/endian.h:
+
+/ffp/include/bits/endian.h:
+
+/ffp/include/sys/select.h:
+
+/ffp/include/bits/select.h:
+
+/ffp/include/sys/sysmacros.h:
+
+/ffp/include/alloca.h:
+
+/mnt/HD_a2/ffp/bin/../lib/gcc/arm-ffp-linux-uclibc/4.5.4/include/stdint.h:
+
+/ffp/include/stdint.h:
+
+gd.h:
+
+gd_io.h:
+
+gdfx.h:
