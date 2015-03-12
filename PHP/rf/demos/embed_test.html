@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title></title>
+    <link rel="stylesheet" type="text/css" href="../static/css/qunit.css">
+    <script type="text/javascript" src="../static/installer/js/jquery.min.js"></script>
+    <script type="text/javascript" src="../static/js/qunit.js"></script>
+    <script type="text/javascript" src="../razorflow.jquery.js"></script>
+    <script type="text/javascript" src="../static/js/embedtest.js"></script>
+
+    <script type="text/javascript">
+        $(function() {
+
+            var rfObject = $("#newDBTarget").razorflow({
+                url: "/rfdev/demos/sales_dashboard.php",
+                width: '600',
+                onDashboardRendered: function() {
+                    startTests();
+                }
+            }).data('razorflow');
+
+            $("#changeWidth").click(function() {
+                var val = parseInt ($("#widthControl").attr('value'));
+
+                if(val !== NaN) {
+                    rfObject.setWidth(val);
+                }
+            });
+
+            $("#changeHeight").click(function() {
+                var val = parseInt ($("#heightControl").attr('value'));
+
+                if(val !== NaN) {
+                    rfObject.setHeight(val);
+                }
+            });
+        });
+
+    </script>
+  </head>
+
+<body style='background:white'>
+    <div id="qunit"></div>
+    <div id="qunit-fixture"></div>
+    <h1 id="heading">Dashboard Embed Example</h1>
+    <p>
+    <label for="widthControl">Set Width (pixels)</label>
+    <input type="text" id="widthControl" name='widthControl' value='600'/>
+    <button id="changeWidth">Change</button>
+    </p>
+    <p>
+    <label for="heightControl">Set Height (pixels)</label>
+    <input type="text" id="heightControl" name='widthControl' value=''/>
+    <button id="changeHeight">Change</button>
+    </p>
+    <div style='margin-bottom:30px'></div>
+
+
+    <div id='newDBTarget'>
+    </div>
+
+
+
+</body>
+</html>
