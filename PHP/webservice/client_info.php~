@@ -63,7 +63,7 @@ echo"<br>";
 //print $res_weather->GetWeatherResult;
  // Affichage des requêtes et réponses SOAP (pour debug)
 // echo '<br />Requete SOAP : '.htmlspecialchars($client_weather->__getLastRequest()).'<br />';
-$xml_answer=$client_weather->__getLastResponse()
+$xml_answer=$client_weather->__getLastResponse();
 echo '<br />Reponse SOAP : '.$xml_answer.'<br />';
 $xml=simplexml_load_string($xml_answer) or die("Error: Cannot create object");
 print_r($xml);
