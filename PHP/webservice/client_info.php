@@ -1,4 +1,45 @@
 <?php
+
+
+function xml2html($xml)
+{
+
+if ($xml === false) {
+     echo "Failed loading XML: ";
+     foreach(libxml_get_errors() as $error) {
+         echo "<br>", $error->message;
+     }
+} else {
+echo"<table>";
+foreach ($xml->children() as $child)
+   {
+   echo "<tr><td>".$child->getName()."</td><td>" . $child . "</td></tr>";
+   }
+   echo"</table>"; // print_r($xml);
+}
+}
+
+
+function getvalue($xml,$name)
+{
+if ($xml === false) {
+     echo "Failed loading XML: ";
+     foreach(libxml_get_errors() as $error) {
+         echo "<br>", $error->message;
+     }
+} else {
+foreach ($xml->children() as $child)
+   {
+	if ($child->getName() == $name)
+		{
+			return $child ;
+	}
+   }
+
+}
+}
+
+
 if (!empty($_SERVER['HTTP_CLIENT_IP'])) {
     $ip = $_SERVER['HTTP_CLIENT_IP'];
 } elseif (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
@@ -34,8 +75,15 @@ echo htmlspecialchars($precise_location);echo"<br>";
 
 $url_map="http://api.tiles.mapbox.com/v4/mapbox.comic/".$lon.",".$lat.",14/500x300.png?access_token=".$token ;
  
-//echo"<img src=".$url_map." alt=map />";
+echo"<img src=".$url_map." alt=map />";
+//echo"<img src=\"http://api.wunderground.com/api/c626379aef26852f/radar/q/autoip.gif\" alt=mpa />";
 
+$url_weather_from_lat_long="http://api.wunderground.com/auto/wui/geo/GeoLookupXML/index.xml?query=".$lat.",".$lon ;
+//$xml_weather = file_get_contents($url_weather_from_lat_long);
+$xml_weather=simplexml_load_string(file_get_contents($url_weather_from_lat_long));
+xml2html($xml_weather);
+$myurl=getvalue($xml_weather,"wuiurl");
+echo"<a href=".$myurl."> Go to site</a>";
 
 $wsdl_weather="http://www.webservicex.net/globalweather.asmx?WSDL";
 $client_weather = new SoapClient($wsdl_weather, array('trace' => 1));
@@ -52,10 +100,9 @@ echo"<br>";
 //print $res_weather->GetWeatherResult;
  // Affichage des requêtes et réponses SOAP (pour debug)
 // echo '<br />Requete SOAP : '.htmlspecialchars($client_weather->__getLastRequest()).'<br />';
-
-
-$xml=simplexml_load_string($res_weather->GetWeatherResult);
-
+$xml_weather2=simplexml_load_string($res_weather->GetWeatherResult);
+xml2html($xml_weather2);
+/*
 
 if ($xml === false) {
      echo "Failed loading XML: ";
@@ -70,9 +117,13 @@ foreach ($xml->children() as $child)
    }
    echo"</table>"; // print_r($xml);
 }
+*/
 
-
-
+$json_string = file_get_contents("http://api.wunderground.com/api/c626379aef26852f/geolookup/conditions/q/".$lat.",".$lon.".json");
+  $parsed_json = json_decode($json_string);
+  $location = $parsed_json->{'location'}->{'city'};
+  $temp_c = $parsed_json->{'current_observation'}->{'temp_c'};
+  echo "Current temperature in ${location} is: ${temp_c} °C\n";
 
 ?>
 
