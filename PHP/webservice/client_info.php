@@ -1,6 +1,7 @@
 <?php
 
 
+
 function xml2html($xml)
 {
 
@@ -55,11 +56,16 @@ $token="pk.eyJ1IjoibWF0aGlldWdyYXZpbCIsImEiOiJobnZZZG5BIn0.WtRMrGCzpuD-d3JusE0zq
 //echo $_SERVER['HTTP_CLIENT_IP'];echo"<br>";
 //echo $_SERVER['REMOTE_ADDR'];echo"<br>";
 //echo $_SERVER['HTTP_X_FORWARDED_FOR'];echo"<br>";
-$url_location_of_ip="http://api.hostip.info/get_html.php?ip=".$ip."&position=true";
+$url_location_of_ip="http://www.geoplugin.net/php.gp?ip=".$ip ;
+//$url_location_of_ip="http://api.hostip.info/get_html.php?ip=".$ip."&position=true";
 //echo $url;echo"<br>";
 $location = file_get_contents($url_location_of_ip);
 echo $location;echo"<br>";
 echo"<A HREF=\"http://www.hostip.info\"> <IMG SRC=\"http://api.hostip.info/flag.php?ip=".$ip." ALT=\"IP Address Lookup\"></A>";echo"<br>";
+
+
+
+
 
 //Latitude: 45.1833 Longitude: 5.7833 IP
 $temp=explode(":",$location);
@@ -67,6 +73,32 @@ $temp2=explode("L",$temp[3]);
 $lat=trim($temp2[0]," \x00..\x1F");
 $temp2=explode("I", $temp[4]);
 $lon=trim($temp2[0]," \x00..\x1F");
+
+//============================================================
+require_once('../geoplugin.class/geoplugin.class.php');
+$geoplugin = new geoPlugin();
+$geoplugin->locate();
+$lon=$geoplugin->longitude ;
+$lat=$geoplugin->latitude ;
+
+echo "Geolocation results for {$geoplugin->ip}: <br />\n".
+	"City: {$geoplugin->city} <br />\n".
+	"Region: {$geoplugin->region} <br />\n".
+	"Area Code: {$geoplugin->areaCode} <br />\n".
+	"DMA Code: {$geoplugin->dmaCode} <br />\n".
+	"Country Name: {$geoplugin->countryName} <br />\n".
+	"Country Code: {$geoplugin->countryCode} <br />\n".
+	"Longitude: {$geoplugin->longitude} <br />\n".
+	"Latitude: {$geoplugin->latitude} <br />\n".
+	"Currency Code: {$geoplugin->currencyCode} <br />\n".
+	"Currency Symbol: {$geoplugin->currencySymbol} <br />\n".
+	"Exchange Rate: {$geoplugin->currencyConverter} <br />\n";
+//============================================================
+
+
+
+
+
 $url_precise_location="http://api.tiles.mapbox.com/v4/geocode/mapbox.places/".$lon.",".$lat.".json?access_token=".$token ;
 echo $url_precise_location;echo"<br>";
 
