@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="css/razorflow.min.css">
+<script src="Scripts/jquery-1.11.2.min.js" language="javascript" type="text/javascript"></script>
+<script type="text/javascript" src="Scripts/razorflow.min.js"></script>
+<script type="text/javascript" src="Scripts/razorflow.devtools.min.js"></script>
+<script type="text/javascript" src="Scripts/detectIE.js"></script>
+<style>
+      #dashboard_target {
+        width: 100%;
+      }
+    </style>
+
+</head>
+<body>
+<table style="width:100%">
+<tr><td><img src="http://portal1.rm.corp.local/dsi/community/urbanistes/Images1/total_brand_block_rgb_0.jpg" alt="TOTAL commited to bettter energy"></td><td> <H1> REPORTING Technical Team</H1></td><td><img src="http://portal1.rm.corp.local/dsi/community/urbanistes/Images1/logo-IS-02.jpg" alt="LOGO_DSI"></td></tr>
+</table>
+
+<script type="text/javascript">
+if(detectIE()){
+alert('You use IE version ' + detectIE() +'. So, please remove compatibility options on IE if you want to be able to see dashboard or use an up-to-date web brower ;)' );
+}
+</script>
+
+<form id="startdateform" >
+<table>
+<tr>
+<td>From delivery month :</td><td><Input Name="fromdate" type="month" size="6" id="fromdate" /></td>
+<td><INPUT id="REFRESH" TYPE="SUBMIT" VALUE="REFRESH"></td>
+</tr>
+</table>
+</form>
+
+
+<script src="Scripts/jquery.SPServices-2014.02.min.js" language="javascript" type="text/javascript"></script>
+
+
+<script src="dashboard_scripts/webservices.js" language="javascript" type="text/javascript"></script>
+<script src="dashboard_scripts/graph.js" language="javascript" type="text/javascript"></script>
+
+<div id="dbTarget" style="position:relative;" class="rf"></div>
+
+<div id="dashboard_target"></div>
+</body>
+</html>
