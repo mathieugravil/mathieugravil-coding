@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <style type="text/css">
+      html, body, #map-canvas { height: 100%; margin: 0; padding: 0;}
+    </style>
+    <script type="text/javascript"
+      src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDWZ0FFNmjAhZDIE7cIlFAtQ0ZqZ6zUUkA">
+    </script>
+    <script type="text/javascript">
+      function initialize() {
+//zoom :0-17
+	var myLatlng = new google.maps.LatLng(45.176201,5.8082);
+        var mapOptions = {center: { lat:  45.176201, lng:  5.8082 },  zoom: 12        };
+        var map = new google.maps.Map(document.getElementById('map-canvas'),  mapOptions);
+	// To add the marker to the map, use the 'map' property
+	var marker = new google.maps.Marker({position: myLatlng,  map: map,   title:"I am here!"});
+	var coordonnees_de_mon_parcour=[
+		new google.maps.LatLng(45.176201,  5.8082),
+    		new google.maps.LatLng(45.1666700, 5.7166700),
+    		new google.maps.LatLng(45.750000,  4.850000),
+		new google.maps.LatLng(45.77722199999999, 3.0870250000000397),
+    		new google.maps.LatLng(45.176201,  5.8082)
+  			];
+	var le_trace_de_mon_parcour = new google.maps.Polyline({
+   		 path: coordonnees_de_mon_parcour ,
+    		 geodesic: true,
+    		 strokeColor: '#FF0000',
+    		 strokeOpacity: 1.0,
+    		 strokeWeight: 2
+  		});
+	le_trace_de_mon_parcour.setMap(map);
+// in order to read KML file        
+ 	var ctaLayer = new google.maps.KmlLayer({url:  'http://mathieugravil.web44.net/Move_2015_02_20_15_48_11_Alpine+skiing.kml'
+  });
+  ctaLayer.setMap(map);
+
+}
+      google.maps.event.addDomListener(window, 'load', initialize);
+    </script>
+  </head>
+  <body>
+<div id="map-canvas"></div>
+  </body>
+</html>
