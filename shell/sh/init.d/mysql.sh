@@ -43,9 +43,9 @@
 # If you change base dir, you must also change datadir. These may get
 # overwritten by settings in the MySQL configuration files.
 
+RESTORE_DIR=/mnt/resource
 BACKUP_DIR=/var/lib/backups
 BACKUP_USER=bkpuser
-PASSWORD=eUiyDsnnmRzLZARAx7XT
 LOG_DIR=/var/log/mariadb
 
 log_date=`date +%Y%m%d_%H%M%S`
@@ -323,15 +323,17 @@ tar_cmd="tar -czvf  ${BACKUP_DIR}/old_mysql_content${log_date}.tgz ${datadir}"
 clean_cmd="rm -rf ${datadir}/*"
 
 chown_cmd="chown -R mysql:mysql ${datadir}"
-
+#set -x
 from_lsn=$(grep from_lsn  ${BACKUP_DIR}/${1}/xtrabackup_checkpoints | cut -d= -f2 )
-full_backup_name=$(dirname $(grep "to_lsn =${from_lsn}"  ${BACKUP_DIR}/full*/xtrabackup_checkpoints | cut -d: -f1))
+full_backup_name=$(dirname $(grep -H "to_lsn =${from_lsn}"  ${BACKUP_DIR}/full*/xtrabackup_checkpoints | cut -d: -f1))
 if [[ -d ${full_backup_name} ]]; then
-cp_cmd="cp -rp  ${full_backup_name}  ${BACKUP_DIR}/restore${log_date} "
-prepare_cmd2="innobackupex --apply-log --redo-only   ${BACKUP_DIR}/restore${log_date}  --incremental-dir=${BACKUP_DIR}/${1}"
-restore_cmd="innobackupex --copy-back   ${BACKUP_DIR}/restore${log_date}"
+cp_cmd="cp -rp  ${full_backup_name}  ${RESTORE_DIR}/restore${log_date} "
+prepare_cmd2="innobackupex --apply-log --redo-only   ${RESTORE_DIR}/restore${log_date}  --incremental-dir=${BACKUP_DIR}/${1}"
+restore_cmd="innobackupex --copy-back   ${RESTORE_DIR}/restore${log_date}"
 else
-log_failure_msg "UNABLE TO FIND FULL BACKUP FOR INC BACKUP ${1}:  ${full_backup_name} DOES NOT EXIST"
+log_failure_msg "UNABLE TO FIND FULL BACKUP FOR INCBACKUP ${1}:"
+log_failure_msg "${full_backup_name} DOES NOT EXIST"
+exit  5
 fi
 launch_cmd "${tar_cmd}"|| exit $?
 launch_cmd "${clean_cmd}"|| exit $?
@@ -540,7 +542,8 @@ exit $?
         'full')
                 BACKUP_DIR_NAME="${BACKUP_DIR}/full_${log_date}"
                 log_file="${LOG_DIR}/full_${log_date}.log"
-                backup_cmd="innobackupex  --user=${BACKUP_USER} --password=${PASSWORD} ${BACKUP_DIR_NAME} --SLAVE-INFO --SAFE-SLAVE-BACKUP  --no-timestamp "
+                #backup_cmd="innobackupex  --user=${BACKUP_USER} --password=${PASSWORD} ${BACKUP_DIR_NAME} --SLAVE-INFO --SAFE-SLAVE-BACKUP  --no-timestamp "
+                backup_cmd="innobackupex  --user=${BACKUP_USER}  ${BACKUP_DIR_NAME} --SLAVE-INFO --SAFE-SLAVE-BACKUP  --no-timestamp "
                 #backup_cmd="innobackupex   --stream=tar --user=${BACKUP_USER} --password=${PASSWORD}  --SLAVE-INFO --SAFE-SLAVE-BACKUP  --no-timestamp  | gzip - > ${BACKUP_DIR_NAME}.tgz"
 echo $backup_cmd
                 prepare_cmd="innobackupex --apply-log   ${BACKUP_DIR_NAME}"
@@ -558,7 +561,8 @@ echo $backup_cmd
         'inc')
                 BACKUP_DIR_NAME="${BACKUP_DIR}/inc_${log_date}"
                 log_file="${LOG_DIR}/inc_${log_date}.log"
-                backup_cmd="innobackupex --incremental --user=${BACKUP_USER} --password=${PASSWORD} ${BACKUP_DIR_NAME}  --SLAVE-INFO --SAFE-SLAVE-BACKUP  --incremental-basedir=${BACKUP_DIR}/last_full_backup  --no-timestamp "
+                #backup_cmd="innobackupex --incremental --user=${BACKUP_USER} --password=${PASSWORD} ${BACKUP_DIR_NAME}  --SLAVE-INFO --SAFE-SLAVE-BACKUP  --incremental-basedir=${BACKUP_DIR}/last_full_backup  --no-timestamp "
+                backup_cmd="innobackupex --incremental --user=${BACKUP_USER}  ${BACKUP_DIR_NAME}  --SLAVE-INFO --SAFE-SLAVE-BACKUP  --incremental-basedir=${BACKUP_DIR}/last_full_backup  --no-timestamp "
                 prepare_cmd="innobackupex --apply-log --redo-only   ${BACKUP_DIR}/last_full_backup"
 #               prepare_cmd2="innobackupex --apply-log --redo-only   ${BACKUP_DIR}/last_full_backup --incremental-dir=${BACKUP_DIR_NAME}"
 
