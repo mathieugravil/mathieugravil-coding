@@ -6,12 +6,48 @@ import sys
 from openpyxl import load_workbook
 
 def create_table_from_xlsx(wb_name,ws_name,tablename, db_file, file_cmd):
-  wb = load_workbook(filename = wb_name, read_only=True)
+  dll = "create table "+tablename+" ("
+  wb = load_workbook(filename = wb_name)#, read_only=True)
   ws_servers = wb[ws_name]
+  for i in range(1, ws_servers.get_highest_column()-1):
+    dll = dll+re.sub('[^A-Za-z0-9]+','_',str(ws_servers.cell(row = 1, column = i).value))+" ,"
+  dll = dll + re.sub('[^A-Za-z0-9]+','_',str(ws_servers.cell(row = 1, column = ws_servers.get_highest_column()-1).value))+" );"
+  print(dll)
+  conn = sqlite3.connect(db_file)
+  c = conn.cursor()
+  c.execute(str(dll))
+  conn.commit()
+  conn.close()
+
+
+def insertfromxlsx(wb_name,ws_name,tablename,db_file,header,file_cmd):
+  wb = load_workbook(filename = wb_name)#, read_only=True)
+  ws_servers = wb[ws_name]
+  i = 1
+  fic = open (str(file_cmd), "a")
+  cnx = sqlite3.connect(db_file)
+  cursor = cnx.cursor()
+  INSERT_CMD="INSERT INTO `"+tablename+"` VALUES (  "
+ 
   for row in ws_servers.rows:
-    print(len(row))
-    for cell in row:
-        print(cell.value)
+    if ( i > header):
+      j=1
+      for cell in row:
+        if( j < len(row)-1 ):
+          INSERT_CMD=INSERT_CMD+" '"+re.sub('[^A-Za-z0-9\.;]+','',str(cell.value))+"' ,"
+          j+=1
+      INSERT_CMD=INSERT_CMD+" '"+re.sub('[^A-Za-z0-9\.;]+','',str(row[len(row)-1]))+"' );"
+      fic.write(str(INSERT_CMD)+"\n")
+      cursor.execute(str(INSERT_CMD))
+      cnx.commit()
+      INSERT_CMD="INSERT INTO `"+tablename+"` VALUES (  "
+    i+=1
+  fic.close
+  cursor.close()
+  cnx.close()
+
+  
+
 
 def create_table_from_csv(filename,tablename,db_file, file_cmd):
   spamReader = csv.reader(open(filename, newline='\n'), delimiter=';')
@@ -95,7 +131,6 @@ def insertfromcsv(db_file,tablename,filename,header,file_cmd):
   cnx.close()
 
 
-
 def main():
   try:
     input_file= sys.argv[1]
@@ -110,6 +145,7 @@ def main():
   file_cmd="commad.sql"
 
   create_table_from_xlsx(input_file,'Servers','servers', db_file, file_cmd)
+  insertfromxlsx(input_file,'Servers','servers',db_file,2,file_cmd)
 
 
   
