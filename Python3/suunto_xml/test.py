@@ -75,8 +75,10 @@ def xml2sqlite(filename, db_file):
               for column in header_dict.values():
                   insert_cmd=insert_cmd+', "'+str(column)+'"'
               insert_cmd=insert_cmd+');'
-             # print(insert_cmd)
-              cursor.execute(str(insert_cmd))
+              try :
+                  cursor.execute(str(insert_cmd))
+              except sqlite3.IntegrityError as err:
+                    print("Entry already exist. No insert will be perfom")
               cnx.commit()
                        
                       # HR bat/s => x60.
@@ -125,7 +127,10 @@ def xml2sqlite(filename, db_file):
                           
                   single_insert=single_insert+');'
                   all_insert=all_insert+single_insert
-                  cursor.execute(str(single_insert))
+                  try :
+                      cursor.execute(str(single_insert))
+                  except sqlite3.IntegrityError as err:
+                      print("Entry already exist. No insert will be perfom")
                   cnx.commit()
                   single_insert=''
    # print(all_insert)
@@ -244,7 +249,7 @@ def main():
       db_file =  args[1]
 
       for file in os.listdir(filename):
-            xml2sqlite(str(filename)+'\\'+str(file),db_file)
+            xml2sqlite(str(filename)+'/'+str(file),db_file)
       #xml2csv(filename)      
   
 
