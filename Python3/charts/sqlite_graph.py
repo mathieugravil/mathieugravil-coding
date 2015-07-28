@@ -20,33 +20,64 @@ If option --noext is given, extended data (hr, temperature, cadence) will not ge
 """)
 
 
-def query2graph(query, db_file, labelx,labely):
-  try:
-    cnx = sqlite3.connect(db_file)
-    cursor = cnx.cursor()
-    cursor.execute(query)
-    rows = cursor.fetchall()
-    x_data=[]
-    y_data=[]
-   
-    
-    for row in rows:
-      x_data.append(row[0])
-      y_data.append(row[1])
-      print(row)
-    ind = np.arange(len(rows))
-    width = 0.35
-    p = plt.bar(ind,y_data, width,color='r')
-    plt.ylabel(labely)
-    plt.title('Duration (s) by Activity')
-    plt.xticks(ind+width/2., x_data )
-    plt.show()
-    
-  except sqlite3.Error as err:
-    print("ERROR SQLITE")
-    sys.exit(1)
+def query2piechart(query, db_file,Title, mainfig,nrows, ncols,plot_nb):
+    try:
+        cnx = sqlite3.connect(db_file)
+        cursor = cnx.cursor()
+        cursor.execute(query)
+        rows = cursor.fetchall()
+        label=[]
+        data=[]
+        for row in rows:
+            label.append(row[0])
+            data.append(row[1])
+        piechart= mainfig.add_subplot(nrows, ncols,plot_nb)    
+        piechart.pie(data,labels=label, autopct='%1.1f%%', shadow=True, startangle=90)
+        
+    except sqlite3.Error as err:
+        print("ERROR SQLITE")
+        sys.exit(1)    
+
+def query2graphbar(query, db_file, labelx,labely,mainfig,nrows, ncols,plot_nb):
+    try:
+        cnx = sqlite3.connect(db_file)
+        cursor = cnx.cursor()
+        cursor.execute(query)
+        rows = cursor.fetchall()
+        x_data=[]
+        y_data=[]
+        for row in rows:
+            x_data.append(row[0])
+            y_data.append(row[1])
+            print(row)
+        ind = np.arange(len(rows))
+        width = 0.35
+        barchart = mainfig.add_subplot(nrows, ncols,plot_nb)
+        barchart.bar(ind,y_data, width,color='r')
+        plt.ylabel(labely)
+        plt.xticks(ind+width/2., x_data )
+      
+    except sqlite3.Error as err:
+        print("ERROR SQLITE")
+        sys.exit(1)
     
 
+def query2graphline(query , db_file, labelx, labely):
+    try:
+        cnx = sqlite3.connect(db_file)
+        cursor = cnx.cursor()
+        cursor.execute(query)
+        rows = cursor.fetchall()
+        x_data=[]
+        y_data=[]
+        plt.plot(rows)
+        plt.show()
+    except sqlite3.Error as err:
+        print("ERROR SQLITE")
+        sys.exit(1)
+
+
+            
 
 
 def main():
@@ -60,8 +91,22 @@ def main():
     usage()
     sys.exit(2)
   db_file = args[0]
+  #query='select Activity, round(sum(Duration)) FROM HEADER GROUP BY Activity '
+  #query2graphbar(query, db_file,'Activity' ,'Duration(s)')
+  #query2='select replace(substr(DateTime,1,7),"-",""), round(sum(Duration)) from HEADER group by replace(substr(DateTime,1,7),"-","") '
+  #query2graphbar(query2 , db_file, 'date', 'Duration(s)')
   query='select Activity, round(sum(Duration)) FROM HEADER GROUP BY Activity '
-  query2graph(query, db_file,'Activity' ,'Duration(s)')
+  nrows = 2
+  ncols = 1     
+
+  fig = plt.figure()
+
+        
+  query2piechart(query, db_file,'Distribution of Activities (Duration)', fig,nrows, ncols,1)
+  plt.title('Report')
+  query2graphbar(query, db_file,'Activity' ,'Duration(s)',fig,nrows, ncols,2)
+  
+  plt.show()
 
 
 
