@@ -7,8 +7,7 @@ import tkinter
 from tkinter import ttk
 from tkinter import messagebox
 from tkinter import *
-from tkinter import ttk
-from tkinter.messagebox import * # boîte de dialogue
+#from tkinter.messagebox import * # boîte de dialogue
 from tkinter.ttk	import *	# Widgets avec thèmes
 
 
