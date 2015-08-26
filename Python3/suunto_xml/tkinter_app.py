@@ -6,6 +6,7 @@ from matplotlib.figure import Figure
 
 import tkinter as tk
 from tkinter import ttk
+from tkinter import *
 
 LARGE_FONT=("Verdana",12)
 
@@ -49,11 +50,19 @@ class StartPage(tk.Frame):
     button3 = ttk.Button(self, text="Visit Page3",
                         command=lambda: controller.show_frame(PageThree))
     button3.pack()
+
+    
 class PageOne(tk.Frame):
   def __init__(self, parent, controller):
     tk.Frame.__init__(self, parent)
     label = tk.Label(self, text="Page One", font=LARGE_FONT)
     label.pack(pady=10,padx=10)
+    
+    User=StringVar()
+    User.set("user")
+    user = ttk.Entry(self, textvariable=User)
+    user.pack()
+    
     button = ttk.Button(self, text="Back",
                         command=lambda: controller.show_frame(StartPage))
     button.pack()
