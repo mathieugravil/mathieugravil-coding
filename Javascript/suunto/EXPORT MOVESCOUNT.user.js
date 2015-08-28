@@ -139,7 +139,7 @@ var sportid=convert_activityID(suunto.move.moveData.activityID)
 
 var url = '<a href="http://www.movescount.com/moves/move'+suunto.move.moveData.moveID+'">Movescount</a>';
 
-var url_called = 'http://mathieugravil:7pultur@@mathieugravil.web44.net/sports/sync.php?seance_name='+Title+'&sport_id='+sportid+'&date='+
+var url_called = 'http://bablalblal/sports/sync.php?seance_name='+Title+'&sport_id='+sportid+'&date='+
     ddate+'&cal='+calories+'&dist='+dist+'&duration='+dur+'&above='+abo+'&below='+bel+'&in_zone='+inz+'&lower='+
     suunto.move.hrZones[0]+'&upper='+suunto.move.hrZones[1]+'&fmoy='+hrAvg+'&fmax='+hrPeak+
     '&vmoy='+3.6*speedAvg+'&vmax='+3.6*speedMax+'&altitude='+ascentAltitude+'&url="'+url+'"&action=insert';
