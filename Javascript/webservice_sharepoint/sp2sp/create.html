@@ -1,0 +1,215 @@
+<html>
+  <head>
+  <script src="./jquery-1.11.2.min.js" language="javascript" type="text/javascript"></script>
+  <script src="./jquery.SPServices-2014.02.min.js" language="javascript" type="text/javascript"></script>
+       <title>Creation Ticket Sharepoint Selene </title>
+  </head>
+  
+  <body >
+ <div id="mylog">
+</div>
+<a id=sh_tk href="">Ticket On expert's Sharepoint</a>
+<br>
+<a id=sh_tk2 href="">Ticket On selene's Sharepoint</a>
+
+  <script type="text/javascript">
+ 
+function getQueryParams(qs) {
+    qs = qs.split("+").join(" ");
+    var params = {},
+        tokens,
+        re = /[?&]?([^=]+)=([^&]*)/g;
+
+    while (tokens = re.exec(qs)) {
+        params[decodeURIComponent(tokens[1])]
+            = decodeURIComponent(tokens[2]);
+    }
+
+    return params;
+}
+
+
+
+function Get_sp_id(liste,view, label,val)
+{
+var myresult = "NONE" ;
+var all_omega_tickets = "";
+//console.log(liste+" "+view+" "+label+" "+val);
+$().SPServices({
+    operation: "GetListItems",
+    async: false,
+    listName: liste,
+	viewName: view,
+	completefunc: function (xData, Status) {
+//	console.log(xData.responseText);
+		$(xData.responseXML).SPFilterNode("z:row").each(function() {
+		if(String($(this).attr(label)).indexOf(val) > -1 )
+		{
+	//	console.log(String($(this).attr(label)).indexOf(val))
+		//console.log('on renvoie '+$(this).attr("ows_ID")+' omega = '+String($(this).attr(label)))
+		myresult=$(this).attr("ows_ID");
+		all_omega_tickets=String($(this).attr(label));
+		}
+		});
+			
+	}
+	});
+	//console.log(myresult);
+return [myresult, all_omega_tickets];	
+}
+
+function create_sharepoint_ticket( liste , Lcre, cre , Lfac, fac, Lstat, status , Ltit, Tit,Ldes, Descr, Ldel_dat , Delivery_dat , LTyp, typ , LThem , them , LLib , UOID , Lsit, sit ,LNB_UO,NB_UO,LIDexp, IDexp ,Ltypo, typo)
+{
+//console.log("On creer"+Lcre+" "+ cre +" "+ Lfac+" "+ fac+" "+ Lstat+" "+ status +" "+ Ltit+" "+ Tit+" "+Ldes+ " "+Descr+ " "+Ldel_dat + " "+Delivery_dat + " "+LTyp+" "+ typ +" "+LThem +" "+ them + " "+LLib +" "+ UOID +" "+ Lsit+" "+ sit +" "+ LIDexp+" "+ IDexp+" "+LNB_UO+" "+NB_UO);
+$().SPServices({
+	operation: "UpdateListItems",
+	async: false, 
+    batchCmd: "New",
+	listName: liste,
+	//
+	valuepairs: [[Lcre, cre] , [Lfac, fac], [Lstat, status] ,[Ltit, Tit], [LNB_UO,NB_UO], [LLib , UOID] ,[LThem,them], [LTyp, typ], [Ldel_dat , Delivery_dat],  [Lsit, sit] , [LIDexp, IDexp ],[Ldes, Descr],[Ltypo, typo]],	
+	completefunc: function (xData, Status) {
+document.all["mylog"].innerHTML = "Update of Sharepoint item : "+Status ;
+	}
+});
+}
+
+function GetFromPeople(name,field){
+	var dep;
+	$().SPServices({
+  operation: "SearchPrincipals",
+    async: false,
+  searchText: name,
+  maxResults: 1,
+  SPPrincipalType: "SPPrincipalType.User",
+  completefunc: function (xData, Status) {
+	//  console.log(xData.responseText)
+	   $(xData.responseXML).SPFilterNode(field).each(function() {
+		dep=$(this).text()		
+	});
+  }
+});
+		if (dep == null)
+		{
+			dep="UNDEFINED"
+		}
+	return dep ; 
+}
+	
+
+function update_sharepoint_ticket(list, ID, Ltit, Tit,Ldes, Descr, Ldel_dat, Del ,  LLib, UOID,LNB_UO,NB_UO,Ltypo, typo )
+{
+//console.log(liste +" " + ID +" "+FIELDNAME + " "+VALUE);
+$().SPServices({
+	operation: "UpdateListItems",
+	listName: list,
+	ID: ID,
+	valuepairs: [[Ltit, Tit], [Ldel_dat, Del] ,  [LLib, UOID],[Ldes, Descr],[LNB_UO,NB_UO],[Ltypo, typo]],
+	completefunc: function (xData, Status) {
+			//alert(Status);
+			 document.all["mylog"].innerHTML = "Update of Sharepoint item : "+Status ;
+	}
+});
+}
+function convert_date(mydate)
+{
+var year = mydate.split("/")[2];
+var month = mydate.split("/")[1];
+var day = mydate.split("/")[0];
+var good = year+"-"+month+"-"+day+"T00:00:01+02:00";
+return good;
+
+}
+
+
+DDSview = "C01A40DE-FC61-4E6F-960E-9A26262D1C71";
+DDSliste = "B39F64A0-B72F-40A4-879E-1360757F71B2";
+UOview = "E751578B-4074-4A6E-9A43-629B2C7E8C6E";
+UOliste = "77CA2B92-342A-4D3E-BCE6-D986C9B7D889" ;
+
+var myGET = getQueryParams(document.location.search);
+var Title = myGET['title']; 
+var Requester = GetFromPeople(myGET['Requester'],'DisplayName'); 
+var Delivery_date = convert_date(myGET['Delivery_date']); 
+var Area = myGET['area']; 
+var Description = "Requester = "+GetFromPeople(myGET['Requester'],'DisplayName')+". "+(myGET['desc']).replace(/<(?:.|\n)*?>/gm, ''); 
+var UO = myGET['UO']; 
+var ID = myGET['ID']; 
+var NB_UO = myGET['NB_UO']; 
+
+
+var UO_ID = Get_sp_id(UOliste, UOview, "ows_Title", UO) ; 
+
+
+
+//create_sharepoint_ticket( mylistName, 'Title', title, 'Description_x0020_de_x0020_la_x0', Description,'Facturation','SDI_PROJ' , 'Typologie' , area ,'Etat','A traiter','Id_Expert', id , 'Date_x0020_d_x0027__x00e9_ch_x000', delivery_date  );
+//' 'Thematique',  'Expertise',
+//'Libelle' , uo, 
+
+//Libelle_x003a_Charge_x0020_estim
+//Libelle_x003a_Identifiant
+
+/*'Date_x0020_d_x0027__x00e9_ch_x00', 
+'Oui', 'Date_x0020_d_x0027__x00e9_ch_x000', delivery_date , , 'Cr%5Fx00e9%5Fateur', 'Total',  
+'Libelle' , uo, 
+*/
+
+Lcrea = 'Cr_x00e9_ateur' ;
+Ltitle = 'Title' ;
+Ldesc = 'Description_x0020_de_x0020_la_x0' ; 
+Ldel_date = 'Date_x0020_d_x0027__x00e9_ch_x000' ;
+Ltype = 'Type_x0020_de_x0020_la_x0020_dem' ;
+LThematique = 'Thematique' ;
+LLibelle = 'Libelle' ;
+Lsite = 'Site_x0020_Intervenants' ; 
+LID = 'Id_Expert' ; 
+Lfact = 'Facturation' ;
+Lstate = 'Etat' ;
+LType = 'Type_x0020_de_x0020_la_x0020_dem' ;
+LNB_UO = 'Nombre_x0020_d_x0027_UOs';
+
+//FieldName="Créateur" FieldInternalName="Cr_x00e9_ateur" Total
+// FieldName="Facturation"	 FieldInternalName="Facturation" SDI_PROJ
+// FieldName="Etat""		 FieldInternalName="Etat" 'A Traiter'
+// FieldName="Titre de la demande" 			 FieldInternalName="Title"
+//  FieldName="Description de la demande" FieldInternalName="Description_x0020_de_x0020_la_x0"
+//  FieldName="Type de la demande" 			 FieldInternalName="Type_x0020_de_x0020_la_x0020_dem" Ponctuelle
+// FieldName="Thematique"		 FieldInternalName="Thematique" Expertise 
+// FieldName="Libelle" FieldInternalName="Libelle" 
+// FieldName="Nombre d&#39;UOs"		 FieldInternalName="Nombre_x0020_d_x0027_UOs"
+// FieldName="Site Intervenants" FieldInternalName="Site_x0020_Intervenants" SMH
+// FieldName="Date d&#39;échéance demandée"		 FieldInternalName="Date_x0020_d_x0027__x00e9_ch_x000"
+// Id%5FExpert 
+
+sh_tk_url='http://portal1.rm.corp.local/dsi/community/urbanistes/Lists/Portfoli_expertise/DispForm.aspx?ID='+ID;
+document.getElementById('sh_tk').href=sh_tk_url
+
+var result = Get_sp_id(DDSliste,DDSview, "ows_Id_Expert", ID) ; 
+if (  result[0] == 'NONE' ) // New tickets
+{
+create_sharepoint_ticket(DDSliste , Lcrea, 'Total', Lfact, 'SDI_PROJ', Lstate, 'A traiter', Ltitle, Title,Ldesc, Description, Ldel_date, Delivery_date , LType, 'Ponctuelle', LThematique, '3', LLibelle, UO_ID[0], Lsite, 'SMH' ,LNB_UO,NB_UO, LID, ID, 'Typologie' , Area  );
+var result = Get_sp_id(DDSliste,DDSview, "ows_Id_Expert", ID) ; 
+if (  result[0] == 'NONE' )
+{
+document.all["mylog"].innerHTML = "Creation of Sharepoint item : "+result[0] ;
+}
+else
+{
+document.all["mylog"].innerHTML = "Creation of Sharepoint item : "+result[0] ;
+sh_tk_url2='http://ipprdcs.rm.corp.local/cloud/DDS_SELENE_V1/Lists/Liste_Demande_de_service/DispForm.aspx?ID='+result[0];
+document.getElementById('sh_tk2').href=sh_tk_url2
+}
+}
+else // Update
+ {
+update_sharepoint_ticket(DDSliste, result[0], Ltitle, Title,Ldesc, Description, Ldel_date, Delivery_date ,  LLibelle, UO_ID[0],LNB_UO,NB_UO,'Typologie' , Area );
+}
+
+
+
+
+
+ </script>
+ 
+</body>
+</html>
