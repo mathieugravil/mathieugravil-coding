@@ -1,22 +1,10 @@
 
-$( "#startdateform" ).submit(function( event ) {
-var fromdate_ele= document.getElementById('fromdate');
-	var fromdat=fromdate_ele.value
-	var fromyyyymm=(fromdat.replace("-","")).substring(0,6)
- //alert( "Handler for .submit() called."+fromyyyymm);
-  if (fromyyyymm != null)
-  {
-	  GetResult(fromyyyymm )
-  }
-  else 
-  {
-	  GetResult(0)
-  }
-  event.preventDefault();
-});
 
 
+
+/*
 $(document).ready(function() {	
+
 var d = new Date();
 var yyyy = d.getFullYear();
 var mm = d.getMonth()+1 - 3
@@ -38,9 +26,11 @@ else
 {
 	yyyymm=String(yyyy)+"0"+String(mm)
 }
+
 GetResult(yyyymm)	
+
 	});
-	
+	*/
 
 
 
@@ -150,8 +140,9 @@ $().SPServices({
 		  //=================== AREA =========================//
 		   var period=$(this).attr("ows_Deliver_MONTH").split("#")[1].split(".")[0]
 if(period>=from){		
-		if ($(this).attr("ows_STATUS")!="CLOSED" && $(this).attr("ows_STATUS")!="REJECTED")
-		  {
+	if ($(this).attr("ows_STATUS")!="CLOSED" && $(this).attr("ows_STATUS")!="REJECTED")
+//		if ( $(this).attr("ows_STATUS")!="REJECTED")
+		{
 			  KPI_day=KPI_day+parseFloat($(this).attr("ows_CHARGE"))
 		      KPI_nb=KPI_nb+1
 			  area_day[list_area.indexOf($(this).attr("ows_Domaine"))]=area_day[list_area.indexOf($(this).attr("ows_Domaine"))]+ parseFloat($(this).attr("ows_CHARGE"))

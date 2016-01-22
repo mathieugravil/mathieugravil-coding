@@ -1,0 +1,84 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+
+<style type="text/css"> 
+
+div#dynacloud {
+        font-size:12px;
+    }    
+    div#dynacloud a span{
+        font-size:1em;
+    }    
+    .highlight { background-color: yellow }
+</style>
+
+<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.3.2/jquery.min.js"></script>
+<script type="text/javascript" src="Scripts/jquery.SPServices-2014.02.min.js" ></script>
+<script type="text/javascript" src="Scripts/jquery.wordstats.js"></script>
+<script type="text/javascript" src="Scripts/jquery.wordstats.fren.js"></script>
+
+<title>CLOUD TAG</title>
+</head>
+
+
+<body>
+<script type="text/javascript" src="Scripts/jquery.dynacloud-5.js"></script>
+<script type="text/javascript">
+// <![CDATA[
+//$.dynaCloud.auto = true;
+$.dynaCloud.max = 40;
+$.dynaCloud.wordStats = false ;
+// ]]>
+</script>
+
+<div  class="dynacloud">
+<div id="dynacloud">
+<a href="javascript:void($('#dynacloud').parent().dynaCloud());"><strong>Generate a tag/keyword cloud from this blog entry</strong></a></div>
+
+<br>
+<br>
+<br>
+<br>
+<br>
+
+<div id="table_result"></div>
+</div>
+
+
+<script type="text/javascript">
+//
+
+var   mylistName = "CC1BFE7F-07A5-458E-8163-22A8AEDD6CC9";
+var	myviewName = "A014C29D-C4F5-411E-B9E7-A854A8426BC7";
+var mytable = "<table border=1><tr><td>ID</td><td>Title</td><td>CHARGE</td><td>Description</td> </tr>";
+var disp_url=" <a href=\"http://portal1.rm.corp.local/dsi/community/urbanistes/Lists/Portfoli_expertise/DispForm.aspx?ID=";
+var blabla="";
+
+$().SPServices({
+    operation: "GetListItems",
+    async: false,
+	listName: mylistName,
+	viewName: myviewName,
+	completefunc: function (xData, Status) {
+	$(xData.responseXML).SPFilterNode("z:row").each(function() {
+	mytable+="<tr><td>"+disp_url+$(this).attr("ows_ID")+"\"> "+$(this).attr("ows_ID") +"</a></td><td>"+$(this).attr("ows_LinkTitle")+"</td><td>"+$(this).attr("ows_Description").replace(/"/g,"")+"</td></tr>";
+		blabla+=$(this).attr("ows_LinkTitle")+$(this).attr("ows_Description");
+	});
+
+			
+	}
+	});
+	mytable+="</table>"
+	document.getElementById("table_result").innerHTML = mytable ;
+	//$('#dynacloud').parent().dynaCloud();
+
+	
+</script>
+
+
+
+
+
+</body>
+</html>

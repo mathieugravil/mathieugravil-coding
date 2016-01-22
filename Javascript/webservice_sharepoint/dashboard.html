@@ -6,6 +6,9 @@
 <script type="text/javascript" src="Scripts/razorflow.min.js"></script>
 <script type="text/javascript" src="Scripts/razorflow.devtools.min.js"></script>
 <script type="text/javascript" src="Scripts/detectIE.js"></script>
+<script src="Scripts/jquery.SPServices-2014.02.min.js" language="javascript" type="text/javascript"></script>
+<script src="dashboard_scripts/webservices.js" language="javascript" type="text/javascript"></script>
+<script src="dashboard_scripts/graph.js" language="javascript" type="text/javascript"></script>
 <style>
       #dashboard_target {
         width: 100%;
@@ -18,30 +21,110 @@
 <tr><td><img src="http://portal1.rm.corp.local/dsi/community/urbanistes/Images1/total_brand_block_rgb_0.jpg" alt="TOTAL commited to bettter energy"></td><td> <H1> REPORTING Technical Team</H1></td><td><img src="http://portal1.rm.corp.local/dsi/community/urbanistes/Images1/logo-IS-02.jpg" alt="LOGO_DSI"></td></tr>
 </table>
 
+
+
+
+
+
+  <p id="startformhtml" ></p>
+
+<div id="dbTarget" style="position:relative;" class="rf"></div>
+<div id="dashboard_target"></div>
+
 <script type="text/javascript">
+
+
+
 if(detectIE()){
 alert('You use IE version ' + detectIE() +'. So, please remove compatibility options on IE if you want to be able to see dashboard or use an up-to-date web brower ;)' );
 }
-</script>
+var myGET = getQueryParams(document.location.search);
+if (! jQuery.isEmptyObject(myGET))
+{
 
-<form id="startdateform" >
+var fromyyyymmhtml = myGET['fromdate'];
+
+
+}
+else{
+var d = new Date();
+var yyyy = d.getFullYear();
+var mm = d.getMonth()+1 - 12
+var yyyymm;
+if (mm <=0)
+{
+	yyyy=yyyy-1
+	mm=12+mm
+	if(mm<10)
+	{
+	fromyyyymmhtml=String(yyyy)+"-0"+String(mm)
+	}
+	else
+	{
+	fromyyyymmhtmlyyyymm=String(yyyy)+"-"+String(mm)		
+	}
+}
+else
+{
+	fromyyyymmhtmlyyyymm=String(yyyy)+"-0"+String(mm)
+}
+}
+var yyyymm = fromyyyymmhtml.replace('-','');
+
+//console.log(yyyymm);
+var formhtml="<form id=\"startdateform\" action=\"dashboard.html\" ><table><tr><td>From delivery month :</td><td><Input Name=\"fromdate\" type=\"month\" size=\"6\" id=\"fromdate\" value="+fromyyyymmhtml+" ></td><td><INPUT id=\"REFRESH\" TYPE=\"SUBMIT\" VALUE=\"REFRESH\" onclick=\"myFunction()\"></td></tr></table></form>";
+document.getElementById("startformhtml").innerHTML = formhtml;
+GetResult( yyyymm );
+/*
+<form id="startdateform" action="dashboard.html" >
 <table>
 <tr>
-<td>From delivery month :</td><td><Input Name="fromdate" type="month" size="6" id="fromdate" /></td>
-<td><INPUT id="REFRESH" TYPE="SUBMIT" VALUE="REFRESH"></td>
+<td>From delivery month :</td><td><Input Name="fromdate" type="month" size="6" id="fromdate" value="yyyymm"/></td>
+<td><INPUT id="REFRESH" TYPE="SUBMIT" VALUE="REFRESH" onclick="myFunction()"></td>
 </tr>
 </table>
 </form>
 
 
-<script src="Scripts/jquery.SPServices-2014.02.min.js" language="javascript" type="text/javascript"></script>
+$( "#startdateform" ).submit(function( event ) {
+var fromdate_ele= document.getElementById('fromdate');
+	var fromdat=fromdate_ele.value
+	var fromyyyymm=(fromdat.replace("-","")).substring(0,6)
+ //alert( "Handler for .submit() called."+fromyyyymm);
+  if (fromyyyymm != null)
+  {
+	  GetResult(fromyyyymm )
+  }
+  else 
+  {
+	  GetResult(0)
+  }
+  event.preventDefault();
+});
+*/
+
+function myFunction() {
+    document.getElementById("startdateform").submit();
+}
+function getQueryParams(qs) {
+    qs = qs.split("+").join(" ");
+    var params = {},
+        tokens,
+        re = /[?&]?([^=]+)=([^&]*)/g;
+
+    while (tokens = re.exec(qs)) {
+        params[decodeURIComponent(tokens[1])]
+            = decodeURIComponent(tokens[2]);
+    }
+
+    return params;
+}
+
+</script>
 
 
-<script src="dashboard_scripts/webservices.js" language="javascript" type="text/javascript"></script>
-<script src="dashboard_scripts/graph.js" language="javascript" type="text/javascript"></script>
 
-<div id="dbTarget" style="position:relative;" class="rf"></div>
 
-<div id="dashboard_target"></div>
+
 </body>
 </html>
