@@ -1,0 +1,60 @@
+#!/bin/ksh
+
+DIR1=`pwd`
+DIR2=`dirname $0`
+DIR3=`cd $DIR1; cd $DIR2; pwd`
+DIR=`cd $DIR3; pwd`;
+. $DIR/../etc/profile.config
+. $DIR/../../../etc/global.config
+
+
+logdate=$(date +"%Y%m%d-%H-%M-%S")
+name=$(basename ${0})
+logfile=`echo ${HCLLOG}"/"${name}"_"${1}"_"${2}"_"${3}"_"${logdate}.log`
+
+for app_sap in ${SAP_LIST}; do
+user_smd=smdadm
+ 
+	case $1 in
+
+		start)
+                        nb_process=`ps -ef | grep jc.sapSMD | grep ${app_sap} | grep -v grep | wc -l `
+                         if [ ${nb_process} -eq 1 ]
+                           then
+                               echo " - SAP SMD instance ${app_sap} already started . "| ${TEE} -a $logfile
+                           else
+				echo "Starting SMD instance for Logical Host : ${app_sap}...."| ${TEE} -a $logfile
+				echo "SMD user : ${user_smd}"| ${TEE} -a $logfile
+				su - ${user_smd} -c startsap ${app_sap}
+		        fi 		
+			;;
+
+		stop)
+               		nb_process=`ps -ef | grep jc.sapSMD | grep ${app_sap} | grep -v grep | wc -l `
+			 if [ ${nb_process} -eq 0 ]
+                           then
+                               echo " - SAP SMD instance ${app_sap} already stopped . "| ${TEE} -a $logfile
+                           else
+				echo "Stoping SMD instance for Logical Host : ${app_sap}...."| ${TEE} -a $logfile
+				echo "Sap user : ${user_smd}"| ${TEE} -a $logfile
+				su - ${user_smd} -c stopsap ${app_sap}
+			fi
+			;;
+        
+		status)
+               		echo "Checking SMD instance ${app_sap} ..."| ${TEE} -a $logfile
+               		nb_process=`ps -ef | grep jc.sapSMD | grep ${app_sap} | grep -v grep | wc -l `
+                    	
+			if [ ${nb_process} -gt 0 ]
+                           then
+                               echo " - SMD for Logical Host : ${app_sap} running ..."| ${TEE} -a $logfile
+                           else
+                               echo " - SMD for Logical Host : ${app_sap} stopped ..."| ${TEE} -a $logfile
+                        fi
+                        ;;
+
+		*)
+			echo "usage: $0 {start|stop|status}"
+			;;
+	esac
+done

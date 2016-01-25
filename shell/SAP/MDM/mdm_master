@@ -1,0 +1,465 @@
+#!/bin/ksh
+DIR1=`pwd`
+. ${DIR1}/config
+
+###### START OF start_sapservice ######
+###### ${1} = SID OF SAP INSTANCE ######
+###### ${2} = SERVICE MDM (MDS<SN> or MIDS<SN>) ######
+###### ${3} = LOGICAL HOSTNAME ######
+###### ${4} = OS USERNAME ######
+###### ${5} = ORACLE_SID ######
+
+start_sapservice()
+{
+if [[ $# = 4 ]];
+then
+if [[ -x /usr/sap/${1}/${2}/exe/sapstartsrv ]];
+then
+        if [[ -r /usr/sap/${1}/SYS/profile/${1}_${2}_${3} ]] ;
+        then
+                /usr/sap/${1}/${2}/exe/sapstartsrv pf=/usr/sap/${1}/SYS/profile/${1}_${2}_${3} -D -u ${4}
+                return $? ;
+
+        else
+                echo "/usr/sap/${1}/SYS/profile/${1}_${2}_${3} doesn't exist or is not not readable!";
+                return 1 ;
+        fi
+else
+        echo "/usr/sap/${1}/${2}/exe/sapstartsrv doesn't exist or is not not executable!";
+        return 1 ;
+fi
+else
+echo "Missing args!!!"
+return $5
+fi
+}
+###### END OF start_sapservice ######
+
+
+
+###### START OF status_sapservice ######
+###### ${1} = SID OF SAP INSTANCE ######
+###### ${2} = SERVICE MDM (MDS<SN> or MIDS<SN>) ######
+###### ${3} = LOGICAL HOSTNAME ######
+###### ${4} = OS USERNAME ######
+status_sapservice()
+{
+if [[ $# = 4 ]];
+then
+        if [[ $(ps  -u ${4} -o cmd | grep  "/usr/sap/${1}/${2}/exe/sapstartsrv pf=/usr/sap/${1}/SYS/profile/${1}_${2}_${3} -D -u ${4}" | grep -v grep |wc -l ) = 1 ]];
+        then
+                echo "SAP service /usr/sap/${1}/${2}/exe/sapstartsrv is UP"
+                return 0
+        else
+                echo "SAP service /usr/sap/${1}/${2}/exe/sapstartsrv is DOWN"
+                return 1
+        fi
+
+else
+echo "Missing args!!!"
+return $5
+fi
+}
+###### END OF status_sapservice ######
+
+
+
+###### START OF status_db ######
+###### ${1} = ORACLE_SID ######
+status_db()
+{
+if [[ -x $ORACLE_HOME/bin/tnsping ]];
+ then
+        tnsping ${1}2>&1 >/dev/null
+        echo "${1} is UP"
+        return $?
+
+else
+        echo "NO tnsping";
+        return 1
+fi
+}
+###### END OF status_db ######
+
+###### START OF status_MD ######
+###### ${1} = SID OF SAP INSTANCE ######
+###### ${2} = SERVICE MDM (MDS<SN> or MIDS<SN>) ######
+###### ${3} = OS USERNAME ######
+
+status_MD()
+{
+if [[ $# = 3 ]];
+then
+         serv=$(echo ${2} | sed 's/[0-9]*//g' | tr "[:upper:]" "[:lower:]")
+         if [[ $(ps  -u ${3} -o cmd | grep ${serv}.sap${1}_${2} | grep -v grep ) > 0 ]];
+         then
+                echo "${serv}.sap${1}_${2} is UP"
+                return 0
+         else
+                echo "${serv}.sap${1}_${2} is DOWN"
+                return 1
+         fi
+else
+        echo "Missing args!!!"
+        return $5
+fi
+}
+
+
+###### END OF status_MD ######
+
+###### START OF GetRepolist ######
+###### ${1} = ORACLE_SID ######
+###### ${2} = ORACLE_USER ######
+###### ${3} = ORACLE_PASSWORD ######
+###### Return list of REPO ######
+GetRepolist()
+{
+status_db ${1}>/dev/null
+if [[ $? = 0 ]];
+then
+        if [[ -x $ORACLE_HOME/bin/sqlplus ]];
+        then
+        REPO_LIST_IN_DB=$(sqlplus -S ${2}/${3}@${DBHOST}:${DBPORT}/${1}<<-END
+			whenever sqlerror exit sql.sqlcode;
+                        set echo OFF heading  off feedback OFF ;
+                        select CATALOG_TAG FROM A2I_XCAT_DBS.A2I_CATALOGS;
+                        exit ;
+			END
+                        )
+        if [[ $(echo $REPO_LIST_IN_DB | grep "ORA-" | wc -l) = 0 ]];
+        then
+                echo $REPO_LIST_IN_DB
+                return 0
+        else
+                echo "ERROR : $REPO_LIST_IN_DB"
+                return 1
+        fi
+        else
+        echo "NO sqlplus";
+        return 1
+        fi
+else
+        echo "${1} is not UP";
+        exit 1 ;
+fi
+
+}
+###### END OF GetRepolist ######
+
+
+
+
+
+###### START OF GetRepoStatus ######
+###### ${1} = LOGICAL HOSTNAME ######
+###### ${2} = REPO_NAME ######
+###### ${3} = DBHOST ######
+###### ${4} = DBPORT ######
+###### ${5} = ORACLE_SID ######
+###### ${6} = ORACLE_USER ######
+###### ${7} = ORACLE_PASSWORD ######
+###### ${8} = PASSWORD_OF ADMIN######
+GetRepoStatus()
+{
+if [[ $# > 6 ]];
+then
+
+        if [[ $(clix  mdsStatus ${1}  Admin:${8} | grep ${2}| wc -l) = 0  ]];
+        then
+                echo ${2} "# is #NOT_MOUNTED#"
+                return 1
+        else
+                clix  mdsStatus ${1}  Admin:${8} | grep "${2} "  | while read repname DBinst dbtype port reptype status
+                do
+                        if [[ $status = "Login" ]];
+                        then
+                                echo "Password I have for "${reponame}" is not valid (${8}) so I change it with the given one :D !"
+                                myrep="${2};${3}:${4}/${5};O;${6};${7}"
+                                clix repEmergencyAdminUserSetPassword  ${1} ${myrep}   Admin:${8} 2>&1 >/dev/null
+                                clix  mdsStatus ${1}  Admin:${8} | grep "${2} "  | while read repname DBinst dbtype port reptype status
+                                do
+                                        echo ${2} "# has status #"${status}"# and it use port #"${port}"#."
+                                done
+
+                        else
+                                echo ${2} "# has status #"${status}"# and it use port #"${port}"#."
+
+                        fi
+                done
+        fi
+
+
+else
+      echo "Missing args!!!"
+        return 5
+fi
+}
+
+###### END OF GetRepoStatus ######
+
+###### START OF MAIN ######
+
+
+
+case $1 in
+start)
+status_db ${ORACLE_SID}
+if [[ $? = 0 ]];
+then
+        status_sapservice ${SID_MDM} MDS${SYS_NUMBER_MDS} ${LOGICAL_HOSTNAME} ${OS_USER}
+        if [[ $? != 0 ]];
+        then
+                echo "o Start of sapservices for MDS${SYS_NUMBER_MDS}: "
+                start_sapservice ${SID_MDM} MDS${SYS_NUMBER_MDS} ${LOGICAL_HOSTNAME} ${OS_USER}
+                if [[ $? = 0 ]];
+                then
+                         echo "OK";
+                else
+                        echo "KO";
+                        exit 1
+                fi
+        fi
+        status_sapservice ${SID_MDM} MDIS${SYS_NUMBER_MDIS} ${LOGICAL_HOSTNAME} ${OS_USER}
+        if [[ $? != 0 ]];
+        then
+                echo "o Start of sapservices for MDIS${SYS_NUMBER_MDIS}: "
+                start_sapservice ${SID_MDM} MDIS${SYS_NUMBER_MDIS} ${LOGICAL_HOSTNAME} ${OS_USER}
+                if [[ $? = 0 ]];
+                then
+                         echo "OK";
+                else
+                        echo "KO";
+                        exit 1
+                fi
+        fi
+        status_MD ${SID_MDM} MDS${SYS_NUMBER_MDS} ${OS_USER}
+        if [[ $? != 0 ]];
+        then
+                echo "o Start of MDS${SYS_NUMBER_MDS}:"
+                (clix icGO ${LOGICAL_HOSTNAME} ${OS_USER} ${OS_PASSWORD} mds )  2>&1 >/dev/null
+                if [[ $? = 0 ]];
+                then
+                        echo "OK";
+                else
+                        echo "KO";
+                        exit 1
+                fi
+        fi
+        status_MD ${SID_MDM} MDIS${SYS_NUMBER_MDIS} ${OS_USER}
+        if [[ $? != 0 ]];
+        then
+                echo "o Start of MDIS${SYS_NUMBER_MDIS}:"
+                ( clix icGO ${LOGICAL_HOSTNAME} ${OS_USER} ${OS_PASSWORD} mdis) 2>&1 >/dev/null
+                if [[ $? = 0 ]];
+                then
+                        echo "OK";
+                else
+                        echo "KO";
+                        exit 1
+                fi
+        fi
+        repolist=$(GetRepolist ${ORACLE_SID} ${ORACLE_USER} ${ORACLE_PASSWORD})
+        ports_list=""
+        repo_to_be_mounted=""
+        repo_to_be_started=""
+        for i in  ${repolist}
+        do
+                GetRepoStatus ${LOGICAL_HOSTNAME} $i  ${DBHOST} ${DBPORT} ${ORACLE_SID} ${ORACLE_USER} ${ORACLE_PASSWORD} ${ADMIN_PASS_REPO} |  while  IFS='#' read  reponame bla1 status bla2 port bla3
+                do
+        ## see ttp://wiki.scn.sap.com/wiki/pages/viewpage.action?pageId=250644649 SAP MDM requires three consecutive ports for each repository.
+                        ## if [[ $port != "" ]];
+                        if [[  $port  =~ ^[0-9]+$ ]];
+                        then
+                                port2=$(echo ${port}"+1" | bc )
+                                port3=$(echo ${port}"+2" | bc )
+                                ports_list=$( echo ${port}" "${port2}" "${port3}" "${ports_list})
+                        fi
+                        if [[ ${status} = "NOT_MOUNTED" ]];
+                        then
+                                repo_to_be_mounted=$(echo ${repo_to_be_mounted} " " ${reponame})
+                        else
+                                        if [[ ${status} != "Started Running" ]];
+                                        then
+                                                repo_to_be_started=$(echo ${repo_to_be_started} " " ${reponame})
+                                        fi
+                        fi
+                done
+        done
+        echo "Used ports: "${ports_list}
+        echo "Repo to be mounted: "${repo_to_be_mounted}
+        echo "Repo already mounted but to be started: "${repo_to_be_started}
+        if [[ ${repo_to_be_mounted} != "" ]];
+        then
+        echo "o Determination of free ports"
+        free_ports=""
+        for k in  $(seq 2000 3  10000 )
+        do
+                port2=$(echo ${k}"+1" | bc )
+                port3=$(echo ${k}"+2" | bc )
+
+                if ! [[ ${ports_list} =~ .*${k}.* ]];
+                then
+                         if ! [[ ${ports_list} =~ .*${port2}.* ]];
+                        then
+                                if ! [[ ${ports_list} =~ .*${port3}.* ]];
+                                then
+                                        free_ports=$(echo $free_ports $k)
+                                fi
+                        fi
+                fi
+        done
+        for j in ${repo_to_be_mounted}
+        do
+                myrep="${j};${DBHOST}:${DBPORT}/${ORACLE_SID};O;${ORACLE_USER};${ORACLE_PASSWORD}"
+                new_port=$(echo ${free_ports} | awk '{ print $1} ')
+                port2=$(echo ${new_port}"+1" | bc )
+                port3=$(echo ${new_port}"+2" | bc )
+
+                free_ports=$(echo ${free_ports} |sed "s/${new_port}//" )
+                free_ports=$(echo ${free_ports} |sed "s/${port2}//" )
+                free_ports=$(echo ${free_ports} |sed "s/${port3}//" )
+                echo "o I will try to mount ${j} on port ${new_port}: "
+                (clix repMount  ${LOGICAL_HOSTNAME}  $myrep $new_port           2>&1) >/dev/null
+                if [[ $? != 0 ]];
+                then
+                        echo "  ERROR : I didn't manage to mount ${j}"
+                else
+                        echo "  OK: ${j} Mounted on port ${new_port}"
+
+                fi
+        done
+        repo_to_be_started=$(echo ${repo_to_be_started}" "${repo_to_be_mounted})
+        fi
+        for l in ${repo_to_be_started}
+        do
+                echo "o I will try to start ${l} :"
+                myrep="${l};${DBHOST}:${DBPORT}/${ORACLE_SID};O;${ORACLE_USER};${ORACLE_PASSWORD}"
+                (clix repStart ${LOGICAL_HOSTNAME} $myrep Admin:${ADMIN_PASS_REPO}   -W ) 2>&1 >/dev/null
+                if [[ $? != 0 ]];
+                then
+                        echo "  ERROR : I didn't manage to start ${l}"
+                else
+                        echo "  OK : ${l} Started"
+
+                fi
+
+        done
+
+else
+        echo "ERROR : start of  ${SID_MDM} Failed!! You must start db ${ORACLE_SID} before !!!"
+fi
+
+
+
+;;
+stop)
+echo "STOP"
+repo_to_be_stopped=""
+repo_to_be_unmounted=""
+repolist=$(GetRepolist ${ORACLE_SID} ${ORACLE_USER} ${ORACLE_PASSWORD})
+for i in  ${repolist}
+do
+        GetRepoStatus ${LOGICAL_HOSTNAME} $i  ${DBHOST} ${DBPORT} ${ORACLE_SID} ${ORACLE_USER} ${ORACLE_PASSWORD} ${ADMIN_PASS_REPO} | while IFS="#" read repo bla status bla2 port
+        do
+                if [[ ${status} = "Started Running" ]];
+                then
+                        repo_to_be_stopped=$( echo ${repo}" "${repo_to_be_stopped})
+                else
+                        if [[ ${status} != "NOT_MOUNTED" ]];
+                        then
+                                repo_to_be_unmounted=$(echo ${repo}" "${repo_to_be_unmounted})
+                        fi
+                fi
+
+        done
+done
+echo "Repo to be stopped and unmounted :"${repo_to_be_stopped}
+echo "Repo to be unmounted :"${repo_to_be_unmounted}
+for i in ${repo_to_be_stopped}
+do
+        echo "o I will try to stop ${i}:"
+        myrep="${i};${DBHOST}:${DBPORT}/${ORACLE_SID};O;${ORACLE_USER};${ORACLE_PASSWORD}"
+        (clix repStop   ${LOGICAL_HOSTNAME} $myrep Admin:${ADMIN_PASS_REPO}) 2>&1 >/dev/null
+        if [[ $? != 0 ]];
+        then
+                echo "  ERROR : I didn't manage to stop ${myrep}"
+        else
+               echo "  OK : ${l} Stopped"
+
+        fi
+done
+repo_to_be_unmounted=$( echo ${repo_to_be_unmounted}" "${repo_to_be_stopped})
+for i in ${repo_to_be_unmounted}
+do
+        echo "o I will try to unmount ${i}:"
+        myrep="${i};${DBHOST}:${DBPORT}/${ORACLE_SID};O;${ORACLE_USER};${ORACLE_PASSWORD}"
+        (clix repUnMount ${LOGICAL_HOSTNAME} $myrep 2>&1) >/dev/null
+        if [[ $? != 0 ]];
+        then
+                echo "  ERROR : I didn't manage to unmount ${i}"
+        else
+               echo "  OK : ${i} Unmounted"
+
+        fi
+done
+status_MD ${SID_MDM} MDIS${SYS_NUMBER_MDIS} ${OS_USER} 2>&1 >/dev/null
+if [[ $? = 0 ]];
+then
+        echo "o I will try to stop MDIS${SYS_NUMBER_MDIS} :"
+        (clix icHalt ${LOGICAL_HOSTNAME} ${OS_USER} ${OS_PASSWORD} mdis -T 5) 2>&1 >/dev/null
+        if [[ $? = 0 ]];
+        then
+                echo "  OK : MDIS${SYS_NUMBER_MDIS} Stopped"
+        else
+                echo "  ERROR : I didn't manage to  stop MDIS${SYS_NUMBER_MDIS} "
+        fi
+else
+        echo "o MDIS${SYS_NUMBER_MDIS} is already stopped"
+fi
+status_MD ${SID_MDM} MDS${SYS_NUMBER_MDS} ${OS_USER} 2>&1 >/dev/null
+if [[ $? = 0 ]];
+then
+        echo "o I will try to stop MDS${SYS_NUMBER_MDS} :"
+        (clix icHalt ${LOGICAL_HOSTNAME} ${OS_USER} ${OS_PASSWORD} mds -T 5)  2>&1 >/dev/null
+        if [[ $? = 0 ]];
+        then
+                echo "  OK : MDS${SYS_NUMBER_MDS} Stopped"
+        else
+                echo "  ERROR : I didn't manage to  stop MDS${SYS_NUMBER_MDS} "
+        fi
+else
+        echo "o MDS${SYS_NUMBER_MDS} is already stopped"
+fi
+
+
+;;
+status)
+echo "o STATUS OF DB :"
+  status_db ${ORACLE_SID}
+echo ""
+echo "o STATUS OF SAPSERVICES :"
+status_sapservice ${SID_MDM} MDS${SYS_NUMBER_MDS} ${LOGICAL_HOSTNAME} ${OS_USER}
+status_sapservice ${SID_MDM} MDIS${SYS_NUMBER_MDIS} ${LOGICAL_HOSTNAME} ${OS_USER}
+echo ""
+echo "o STATUS OF MDM SERVER  :"
+status_MD ${SID_MDM} MDS${SYS_NUMBER_MDS} ${OS_USER}
+echo ""
+echo "o STATUS OF MDM IMPORT SERVER  :"
+status_MD ${SID_MDM} MDIS${SYS_NUMBER_MDIS} ${OS_USER}
+echo ""
+echo "o STATUS OF REPOSITORIES  :"
+repolist=$(GetRepolist ${ORACLE_SID} ${ORACLE_USER} ${ORACLE_PASSWORD})
+for i in  ${repolist}
+do
+GetRepoStatus ${LOGICAL_HOSTNAME} $i  ${DBHOST} ${DBPORT} ${ORACLE_SID} ${ORACLE_USER} ${ORACLE_PASSWORD} ${ADMIN_PASS_REPO}
+
+done
+;;
+*)
+        echo "usage: $0 {start|stop|status}"
+;;
+esac
+
+###### END OF MAIN ######
+

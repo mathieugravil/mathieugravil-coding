@@ -1,0 +1,72 @@
+#!/bin/ksh
+#set -x 
+DIR1=`pwd`
+DIR2=`dirname $0`
+DIR3=`cd $DIR1; cd $DIR2; pwd`
+DIR=`cd $DIR3; pwd`;
+. $DIR/../etc/profile.config
+. $DIR/../../../etc/global.config
+pid_file=/var/run/rsync.pid
+
+StartSync()
+{
+StatusSync>/dev/null
+if [[ $? -eq O ]]; then
+echo "Nothing to do : SYNC is already running!"
+else
+echo "I try to start sync"
+nohup  $DIR/../init.d/zrsync > /dev/null &
+echo $$ > ${pid_file}
+fi
+}
+StopSync()
+{
+StatusSync>/dev/null
+if [[ $? -eq O ]]; then
+	kill -9 $(cat $pid_file)
+else
+	echo "Nothing to do"	
+fi
+StatusSync
+if [[ $? -eq 0 ]] ; then
+return 1
+else 
+return 0 
+fi
+}
+StatusSync()
+{
+if [[ -r $pid_file ]]; then
+	nb=$(ps -ef | grep `cat $pid_file`|grep -v grep |  wc -l)
+                if [[ $nb = 0 ]];
+                then
+                        echo "Sync is DOWN."
+						rm -f $pid_file
+                        return 1
+				else
+                        echo "Sync is UP (pid `cat $pid_file`)"
+                        return 0
+                fi
+else
+	echo "$pid_file is not present."
+    echo "Sync is normally DOWN."
+        if [[ $(ps -ef | grep rsync | wc -l) != 1 ]]; then
+            echo "Some process with rsync are still running."
+            return 2
+        else
+            echo "No process rsync are running."
+            return 1
+        fi
+fi
+}
+
+
+
+
+case $1 in
+        start)          StartSync ;;
+        stop)           StopSync ; exit $? ;;
+		status)			StatusSync ;;
+esac
+
+# rsync  -e ssh -avzn --delete-after --stats --exclude="lost+found" /EXTALPOOL/ ixos@frmsteuixosp01:/EXTALPOOL

@@ -1,0 +1,1101 @@
+#!/bin/ksh
+#set -x 
+DIR1=`pwd`
+DIR2=`dirname $0`
+DIR3=`cd $DIR1; cd $DIR2; pwd`
+DIR=`cd $DIR3; pwd`;
+. $DIR/../etc/profile.config
+. $DIR/../../../etc/global.config
+#. /opt/ManCluster/DG/CIDB/etc/profile.config
+#. /opt/ManCluster/DG/etc/global.config
+######## show_conf ###########
+show_conf()
+{
+if [[ $is_asm = "Y" ]];then
+	log=$(su - ${user_ora} -c " oe ${SID} 2>&1 >/dev/null ;  ${HCLBASEDIR}/init.d/DGBROKER/configuration.ksh ${DB_CON} " )
+else
+	log=$(su - ${user_ora} -c "${HCLBASEDIR}/init.d/DGBROKER/configuration.ksh ${DB_CON} " )
+fi
+while [[ $(${CAT} ${log} | ${GREP} "ORA-16525" |wc -l) = 1 ]]
+do
+sleep 10
+if [[ $is_asm = "Y" ]];then
+	log=$(su - ${user_ora} -c " oe ${SID} 2>&1 >/dev/null ;  ${HCLBASEDIR}/init.d/DGBROKER/configuration.ksh ${DB_CON} " )
+else
+	log=$(su - ${user_ora} -c "${HCLBASEDIR}/init.d/DGBROKER/configuration.ksh ${DB_CON} " )
+fi
+done
+if [[ $(${CAT} ${log} | ${GREP} "ORA-" |wc -l) != 0 ]];then
+	echo "ERROR: See ${log}" | ${TEE} -a $logfile
+	return 5
+else
+	${CAT} ${log}
+ 	return 0
+fi
+}
+##### End show_conf ##########
+
+######## show_db ###########
+show_db()
+{
+if [[ $is_asm = "Y" ]];then
+LOG_STATE=$(su - $user_ora -c "oe ${SID} 2>&1 >/dev/null ; ${HCLBASEDIR}/init.d/DGBROKER/show_db.ksh  ${1} ${1}")
+else
+LOG_STATE=$(su - $user_ora -c "${HCLBASEDIR}/init.d/DGBROKER/show_db.ksh  ${1} ${1}")
+fi
+while [[ $(${CAT} ${LOG_STATE} | ${GREP} "ORA-16525" |wc -l) = 1 ]]
+do
+sleep 10
+if [[ $is_asm = "Y" ]];then
+LOG_STATE=$(su - $user_ora -c "oe ${SID} 2>&1 >/dev/null ; ${HCLBASEDIR}/init.d/DGBROKER/show_db.ksh  ${1} ${1}")
+else
+LOG_STATE=$(su - $user_ora -c "${HCLBASEDIR}/init.d/DGBROKER/show_db.ksh  ${1} ${1}")
+fi
+done
+if [[ $(${CAT} ${LOG_STATE} | ${GREP} "ORA-" |wc -l) != 0 ]];then
+       echo "WARN: There is some ORA- :  See ${LOG_STATE}"| ${TEE} -a $logfile
+fi
+STATE=$(${CAT} ${LOG_STATE} | $EGREP -E 'ERROR|SUCCESS|SHUTDOWN')
+STATE_2=$(${CAT} ${LOG_STATE} | $GREP "Intended State" | cut -d: -f2 )
+echo "${1} has status $STATE $STATE_2"
+}
+##### End show_db ##########
+
+###############################
+## is_dbup  ###################
+# 5 : all is down
+# 0 : all is up 
+# 1 : only master is up
+# 2 : only aux is up 
+#############################
+is_dbup()
+{
+echo "o I check if DB are up :"
+MASTER_ISUP=$(${SSH} -i ${sshkey_master_node} ${master_node} "ps -fu ${user_ora}  | grep pmon | grep ${SID} |   wc -l" 2>/dev/null )
+AUX_ISUP=$(${SSH} -i ${sshkey_aux_node} ${aux_node} "ps -fu ${user_ora}  | grep pmon | grep ${SID} | wc -l" 2>/dev/null)
+if [[ $MASTER_ISUP = 0  ||  $MASTER_ISUP = '' ]] ; then
+	if [[ $AUX_ISUP = 0   || $AUX_ISUP = '' ]]; then
+		DB_CON="NO_CONN"
+		echo "Both are down!"| ${TEE} -a $logfile
+		return  5
+	else
+		DB_CON=$aux_db_name
+		echo "DB MASTER named $master_db_name on $master_node : DOWN"| ${TEE} -a $logfile
+		echo "DB AUX named $aux_db_name on $aux_node : UP"| ${TEE} -a $logfile
+		return 2
+	fi
+else
+	if [[ $AUX_ISUP = 0  || $AUX_ISUP = '' ]]; then
+		DB_CON=$master_db_name
+		echo "DB MASTER named $master_db_name on $master_node : UP"| ${TEE} -a $logfile
+		echo "DB AUX named $aux_db_name on $aux_node : DOWN"| ${TEE} -a $logfile
+		return 1 
+	else
+		echo "DB MASTER named $master_db_name on $master_node : UP"| ${TEE} -a $logfile
+		echo "DB AUX named $aux_db_name on $aux_node : UP"| ${TEE} -a $logfile
+		DB_CON=$master_db_name
+		return 0 
+	fi
+fi
+}
+#### END OF is_dbup ############
+###### apply_on ###############
+apply_on()
+{
+rc_apply_on=0
+echo "I put $1 on $node on state APPLY-ON"	| ${TEE} -a $logfile
+if [[ $is_asm = "Y" ]];then
+	log=$(su - ${user_ora} -c " oe ${SID} 2>&1 >/dev/null ;  ${HCLBASEDIR}/init.d/DGBROKER/apply-on.ksh ${1} " )
+else
+	log=$(su - ${user_ora} -c "${HCLBASEDIR}/init.d/DGBROKER/apply-on.ksh ${1} " )
+fi
+while [[ $(${CAT} ${log} | ${EGREP} -e "ORA-16525|ORA-16613" |wc -l) = 1 ]]
+do
+sleep 10
+if [[ $is_asm = "Y" ]];then
+	log=$(su - ${user_ora} -c " oe ${SID} 2>&1 >/dev/null ;  ${HCLBASEDIR}/init.d/DGBROKER/apply-on.ksh ${1} " )
+else
+	log=$(su - ${user_ora} -c "${HCLBASEDIR}/init.d/DGBROKER/apply-on.ksh ${1} " )
+fi
+done
+
+if [[ $(${CAT} ${log} | ${GREP} "ORA-" |wc -l) != 0 ]];then
+	echo "WARN: There is some ORA- :  See ${log}"| ${TEE} -a $logfile
+	rc_apply_on=5
+else
+	echo "o I check if apply-on is done on $1"| ${TEE} -a $logfile
+	if  [[ $(${GREP} "Succeeded." ${log} |wc -l) = 1 ]] ; then
+		echo "INFO : Apply-ON Succeed"| ${TEE} -a $logfile
+		rc_apply_on=0
+	else
+		echo "ERROR : Apply-ON Failed!!!"| ${TEE} -a $logfile
+		rc_apply_on=5
+	fi
+fi
+return $rc_apply_on
+}
+###END OF apply_on ############
+
+###### apply_off ###############
+apply_off()
+{
+rc_apply_off=0
+echo "I put $1 on $nodename on state APPLY-OFF"	| ${TEE} -a $logfile
+if [[ $is_asm = "Y" ]];then
+	log=$(su - ${user_ora} -c " oe ${SID} 2>&1 >/dev/null ;  ${HCLBASEDIR}/init.d/DGBROKER/apply-off.ksh ${1} " )
+else
+	log=$(su - ${user_ora} -c "${HCLBASEDIR}/init.d/DGBROKER/apply-off.ksh ${1} " )
+fi
+while [[ $(${CAT} ${log} | ${EGREP} -E "ORA-16525|ORA-16613|ORA-16516" |wc -l) = 1 ]]
+do
+echo " We wait beacause of ORA-16525|ORA-16613|ORA-16516 ..."| ${TEE} -a $logfile
+sleep 10
+if [[ $is_asm = "Y" ]];then
+	log=$(su - ${user_ora} -c " oe ${SID} 2>&1 >/dev/null ;  ${HCLBASEDIR}/init.d/DGBROKER/apply-off.ksh ${1} " )
+else
+	log=$(su - ${user_ora} -c "${HCLBASEDIR}/init.d/DGBROKER/apply-off.ksh ${1} " )
+fi
+done
+if [[ $(${CAT} ${log} | ${GREP} "ORA-" |wc -l) != 0 ]];then
+	echo "WARN: There is some ORA- :  See ${log}"| ${TEE} -a $logfile
+	rc_apply_off=5
+ else
+	echo "o I check if apply-off is done on $1"| ${TEE} -a $logfile
+	if  [[ $(${GREP} "Succeeded." ${log} |wc -l) = 1 ]] ; then
+		echo "INFO : Apply-OFF Succeed"| ${TEE} -a $logfile
+		rc_apply_off=0
+	else
+		echo "ERROR : Apply-OFF Failed!!!"| ${TEE} -a $logfile
+		rc_apply_on=5
+
+	fi
+fi
+return $rc_apply_off
+}
+###END OF apply_off ############
+###### search_primary_db########
+search_primary_db()
+{
+rc_search_primary_db=0
+is_dbup
+rc_is_dbup=$? 
+if [[ $rc_is_dbup = 5 ]]; then
+echo "Boths DB are down. I can't determine Which DB is primary!!"| ${TEE} -a $logfile
+rc_search_primary_db=5
+else 
+echo "o I check which DB is primary:"| ${TEE} -a $logfile
+if [[ $is_asm = "Y" ]];then
+log=$(su - ${user_ora} -c "oe ${SID} 2>&1 >/dev/null ; ${HCLBASEDIR}/init.d/DGBROKER/configuration.ksh ${DB_CON} " )
+else
+log=$(su - ${user_ora} -c "${HCLBASEDIR}/init.d/DGBROKER/configuration.ksh ${DB_CON} " )
+fi
+while [[ $(${CAT} ${log} | ${GREP} "ORA-16525" |wc -l) = 1 ]]
+do
+echo "INFO : the Data Guard broker is not yet available... Try again in 10 seconds."| ${TEE} -a $logfile
+sleep 10
+if [[ $is_asm = "Y" ]];then
+log=$(su - ${user_ora} -c "oe ${SID} 2>&1 >/dev/null ; ${HCLBASEDIR}/init.d/DGBROKER/configuration.ksh ${DB_CON} " )
+else
+log=$(su - ${user_ora} -c "${HCLBASEDIR}/init.d/DGBROKER/configuration.ksh ${DB_CON} " )
+fi
+done
+if [[ $(${CAT} ${log} | ${GREP} "ORA-" |wc -l) != 0 ]];then
+	echo "WARN: There is some ORA- :  See ${log}"| ${TEE} -a $logfile
+	rc_search_primary_db=5
+ else
+rc_search_primary_db=0
+fi
+primary_db_name=$( ${CAT} ${log} | ${GREP} "Primary database" | cut -d- -f1| sed "s/ //g")
+physical_stdby_db_name=$(${CAT} ${log} | ${GREP} "Physical standby database" | cut -d- -f1 | sed "s/ //g")
+if [[ $primary_db_name = $master_db_name ]];then
+	echo "MASTER on $master_node = Primary database : $primary_db_name "| ${TEE} -a $logfile
+	echo "AUX on $aux_node = Physical standby database : $physical_stdby_db_name  "| ${TEE} -a $logfile
+else
+	echo "AUX on $aux_node = Primary database : $primary_db_name "| ${TEE} -a $logfile
+	echo "MASTER on $master_node = Physical standby database : $physical_stdby_db_name "| ${TEE} -a $logfile
+fi
+fi
+return $rc_search_primary_db
+}
+
+###end of search_primary_db########
+###### read_only ########################
+read_only()
+{
+rc_read_only=0
+echo "o I try to read-only on $aux_db_name"| ${TEE} -a $logfile
+if [[ $is_asm = "Y" ]];then
+	log_read_only=$(su -  $user_ora -c " oe ${SID} 2>&1 >/dev/null ;  ${HCLBASEDIR}/init.d/DGBROKER/read-only.ksh $1")
+else
+	log_read_only=$(su -  $user_ora -c "${HCLBASEDIR}/init.d/DGBROKER/read-only.ksh $1")
+fi
+if [[ $(${CAT} ${log_read_only} | ${GREP} "ORA-" |wc -l) != 0 ]];then
+	echo "WARN: There is some ORA- :  See ${log_read_only}"| ${TEE} -a $logfile
+fi	
+echo "o I check if $1 is  read-only"| ${TEE} -a $logfile
+if  [[ $(${GREP} "Succeeded." ${log_read_only} |wc -l) = 1 ]] ; then
+	echo "Read-only Succeed"| ${TEE} -a $logfile
+	rc_read_only=0
+else
+	echo "Read-only Failed!!"| ${TEE} -a $logfile
+	rc_read_only=5
+fi
+return $rc_read_only
+}
+##### END OF  read_only #################
+###### open_db ##################
+open_db()
+{
+rc_open_db=0
+echo "O I try to open $aux_db_name"| ${TEE} -a $logfile	
+if [[ $is_asm = "Y" ]];then
+	log_open=$(su -  $user_ora -c " oe ${SID} 2>&1 >/dev/null ; ${HCLBASEDIR}/init.d/DGBROKER/open.ksh $1")
+else
+	log_open=$(su -  $user_ora -c "${HCLBASEDIR}/init.d/DGBROKER/open.ksh $1")
+fi
+if [[ $(${CAT} ${log_open} | ${GREP} -v "ORA-01531" | ${GREP} "ORA-" |wc -l) != 0 ]];then
+	echo "WARN: There is some ORA- :  See ${log_open}"| ${TEE} -a $logfile
+fi	
+echo "o I check if $1 is  open"| ${TEE} -a $logfile
+if  [[ $(${GREP} "Succeeded." ${log_open} |wc -l) = 1 ]] ; then
+	echo "INFO : Open Succeed"| ${TEE} -a $logfile
+	rc_open_db=0
+else	
+	if [[ $(${CAT} ${log_open} | ${GREP} "ORA-01531"  |wc -l) = 1 ]];then
+		 echo "INFO : Open Succeed"| ${TEE} -a $logfile
+	        rc_open_db=0
+	else
+		echo "ERROR : Open Failed!!"| ${TEE} -a $logfile
+		rc_open_db=5
+	fi
+fi
+return $rc_open_db
+}
+
+###### END OF open_db ###########
+#### stdby_to_reporting #########
+stdby_to_reporting()
+{
+search_primary_db
+if [[ $? = 0 ]]; then
+	 state_2=$(show_db $physical_stdby_db_name | ${AWK} '{print $5}'  )
+	if [[ $state_2 = "APPLY-OFF" ]]; then
+		echo "INFO stdby_to_reporting :   $physical_stdby_db_name  is already in APPLY-OFF " | ${TEE} -a $logfile
+		return 0
+	else
+		apply_off $physical_stdby_db_name
+		if [[ $? = 0 ]];then 
+			open_db $physical_stdby_db_name
+			if [[ $? = 0 ]];then
+			echo "INFO stdby_to_reporting :  open $physical_stdby_db_name   " | ${TEE} -a $logfile
+			return 0
+			else
+			echo "ERROR stdby_to_reporting : Cannot  open $physical_stdby_db_name !!  " | ${TEE} -a $logfile
+			return 3
+			fi	
+		else
+		echo "ERROR stdby_to_reporting : Cannot apply-off on $physical_stdby_db_name !!  " | ${TEE} -a $logfile
+		return 2
+		fi
+	fi
+else
+	echo "ERROR stdby_to__reporting : Cannot find stdby DB!!  " | ${TEE} -a $logfile
+	return 1
+fi
+}
+## END OF stdby_to_reporting ####
+
+#### reporting_to_stdby #########
+reporting_to_stdby()
+{
+search_primary_db
+if [[ $? = 0 ]]; then
+	state_2=$(show_db $physical_stdby_db_name | ${AWK} '{print $5}'  )
+	if [[ $state_2 = "APPLY-OFF" ]]; then
+		offline $physical_stdby_db_name
+        	stop_db $physical_stdby_db_name
+        	if [[ $? = 0 ]];then
+        	        start_db $physical_stdby_db_name REDO-APPLY
+        	        if [[ $? = 0 ]];then
+        	        echo "INFO reporting_to_stdby :  start $physical_stdby_db_name  succeed " | ${TEE} -a $logfile
+        	        return 0
+        	        else
+        	        echo "ERROR reporting_to_stdby : Cannot  start $physical_stdby_db_name !!  " | ${TEE} -a $logfile
+        	        return 3
+        	        fi
+        	else
+        	echo "ERROR reporting_to_stdby : Cannot stop $physical_stdby_db_name !!  " | ${TEE} -a $logfile
+        	return 2
+        	fi
+	else
+        	echo "WARN reporting_to_stdby : nothing to do  $physical_stdby_db_name is on state $state_2  " | ${TEE} -a $logfile
+	fi
+else
+        echo "ERROR reporting_to_stdby : Cannot find stdby DB!!  " | ${TEE} -a $logfile
+        return 1
+fi
+
+}
+## END OF reporting_to_stdby ####
+
+#### start_db_question #########
+start_db_question()
+{
+if [[ $2 = "force" ]]; then
+       start_db $1
+       return $?
+else
+	if [[ $1 = $master_db_name ]]; then
+		node=$master_node
+	else
+		node=$aux_node
+	fi	
+       print -n  "Are you sure you want to start $1 on $node  (yes/no)?"
+       while read answer
+       do
+       case  $answer in
+           yes)
+               start_db $1
+               return $?
+            ;;
+            no)
+               echo "Nothing done"
+               return 5 
+            ;;
+            *)
+             print -n  "Are you sure you want to start $1 on $node (yes/no)?"
+            ;;
+            esac
+           done
+fi
+}
+####END OF  start_db_question #########
+###### check-apply ##################
+check_apply()
+{
+rc_check_apply=0
+if [[ $is_asm = "Y" ]];then
+	log_check_apply=$(su -  $user_ora -c " oe ${SID} 2>&1 >/dev/null ; ${HCLBASEDIR}/init.d/DGBROKER/check-apply.ksh")
+else
+	log_check_apply=$(su -  $user_ora -c "${HCLBASEDIR}/init.d/DGBROKER/check-apply.ksh")
+fi
+if [[ $(${CAT} ${log_check_apply} | ${GREP} "ORA-" |wc -l) != 0 ]];then
+	echo "ERROR : There is some ORA- :  See ${log_check_apply}"| ${TEE} -a $logfile
+	rc_check_apply="-1"
+else
+	rc_check_apply=$(${CAT} ${log_check_apply} | ${GREP} Diff | ${CUT} -d: -f2 )
+fi	
+return $rc_check_apply
+}
+#### END OF check-apply ##############
+###### read_only ##################
+read_only()
+{
+rc_read_only=0
+if [[ $is_asm = "Y" ]];then
+	log_read_only=$(su -  $user_ora -c "oe ${SID} 2>&1 >/dev/null ; ${HCLBASEDIR}/init.d/DGBROKER/read-only.ksh $1")
+else
+	log_read_only=$(su -  $user_ora -c "${HCLBASEDIR}/init.d/DGBROKER/read-only.ksh $1")
+fi
+if [[ $(${CAT} ${log_read_only} | ${GREP} "ORA-" |wc -l) != 0 ]];then
+	echo "ERROR : There is some ORA- :  See ${log_read_only}"| ${TEE} -a $logfile
+	rc_read_only="-1"
+else
+	rc_read_only=$(${CAT} ${log_read_only} | ${GREP} Diff | ${CUT} -d: -f2 )
+fi	
+return $rc_read_only
+}
+#### END OF read_only ##############
+###### offline ##################
+offline()
+{
+rc_offline=0
+echo "o I try to put $1 in state OFFLINE :" | ${TEE} -a $logfile
+if [[ $is_asm = "Y" ]];then
+	log_offline=$(su -  $user_ora -c "oe ${SID} 2>&1 >/dev/null ; ${HCLBASEDIR}/init.d/DGBROKER/offline.ksh $1")
+else
+	log_offline=$(su -  $user_ora -c "${HCLBASEDIR}/init.d/DGBROKER/offline.ksh $1")
+fi
+if [[ $(${CAT} ${log_offline} | ${GREP} -v "ORA-01109" | ${GREP} "ORA-" |wc -l) != 0 ]];then
+	echo "WARN : There is some ORA- :  See ${log_offline}"| ${TEE} -a $logfile
+	rc_offline="-1"
+fi	
+if [[ $rc_offline = 0 ]]; then
+	 echo "INFO :  $1 is in state OFFLINE :" | ${TEE} -a $logfile
+else
+	 echo "ERROR :  I failed to put $1 in state OFFLINE  see  ${log_offline}:" | ${TEE} -a $logfile
+fi
+return $rc_offline
+}
+#### END OF offline ##############
+
+#### start_db(DBname)#############
+start_db(){
+rc_start_db=0
+if [[ $# -ge 1 ]]; then
+	if [[ $1 = $master_db_name ]]; then
+		sshkey=$sshkey_master_node 
+		node=$master_node
+	else
+		sshkey=$sshkey_aux_node 
+		node=$aux_node
+	fi	
+	if [[ $($SSH -i $sshkey $node "ps -fu $user_ora  | grep pmon | grep ${SID}  | wc -l") = 0 ]];then
+
+		echo "o I will try to start $1"| ${TEE} -a $logfile
+		if [[ $is_asm = "Y" ]];then
+			log_start=$(su -  $user_ora -c "oe ${SID} 2>&1 >/dev/null ; ${HCLBASEDIR}/init.d/DGBROKER/start.ksh $1")
+		else
+			log_start=$(su -  $user_ora -c "${HCLBASEDIR}/init.d/DGBROKER/start.ksh $1")
+		fi
+		if [[ $(${CAT} ${log_start} | ${GREP} "ORA-" |wc -l) != 0 ]];then
+			echo "WARN: There is some ORA- :  See ${log_start}"| ${TEE} -a $logfile
+		fi	
+		if [[ $($SSH -i $sshkey $node "ps -fu $user_ora  | grep pmon | wc -l") = 0 ]];then
+			echo "ERROR : $1 in $node is DOWN !!!"| ${TEE} -a $logfile
+			rc_start_db=5 
+		else	
+			echo "INFO : $1 in $node is UP "	| ${TEE} -a $logfile
+			rc_start_db=0
+		fi
+		search_primary_db
+		if [[ $1 =  $primary_db_name ]] ; then
+			open_db $1
+			rc_start_db=$?
+		else
+			case $2 in
+				READ-ONLY)
+					apply_off $1 $1
+					if [[ $? = 0 ]]; then
+						open_db $1
+						return $?
+					else		
+						return $?
+					fi
+				;;
+				REDO-APPLY)
+					sleep 10
+					apply_on $1
+					return $?
+				;;
+				SWITCH)
+						check_apply 
+						echo $? "redo to applied."| ${TEE} -a $logfile
+						switchover $1
+						return $?
+				;;
+				FAIL-OVER)
+                        	             check_apply
+						echo $? "redo to applied."| ${TEE} -a $logfile
+						echo "Fail-OVER to be launch on $1..."
+						failover $1
+						return $?
+				;;
+				*)
+				print -n  "$1 on $node is Physical standby. So do you want to start it on READ-ONLY OR REDO-APPLY OR SWITCH-OVER OR FAIL-OVER (READ-ONLY/REDO-APPLY/SWITCH/FAIL-OVER)?"
+				while read answer
+				do	
+				case  $answer in 
+				READ-ONLY)
+					apply_off $1 $1
+					if [[ $? = 0 ]]; then
+						open_db $1
+						return $?
+					else		
+						return $?
+					fi
+				;;
+				REDO-APPLY)
+					sleep 10
+					apply_on $1
+					return $?
+				;;
+				SWITCH)
+						check_apply 
+						echo $? "redo to applied."| ${TEE} -a $logfile
+						switchover $1
+						return $?
+				;;
+				FAIL-OVER)
+                        	             check_apply
+						echo $? "redo to applied."| ${TEE} -a $logfile
+						echo "Fail-OVER to be launch on $1..."
+						failover $1
+						return $?
+				;;
+				*)
+					print -n  "$1 on $node is Physical standby. So do you want to start it on READ-ONLY OR REDO-APPLY OR SWITCH-OVER OR FAIL-OVER (READ-ONLY/REDO-APPLY/SWITCH/FAIL-OVER)?"
+				;;
+				esac
+				done
+			;;
+			esac
+		fi
+	else
+		get_status
+		if [[ $1 = $master_db_name ]];then
+			my_state=$(echo $MASTER_STATE )
+			my_state_2=$(echo $MASTER_STATE_2 )
+		else
+			my_state=$( echo $AUX_STATE )
+			my_state_2=$( echo $AUX_STATE_2)
+		fi
+		if [[ $1 = $primary_db_name ]]; then
+			echo "o I have nothing to do $1 is Primary DB and already started"
+		else
+			echo "o  $1 is already started and status is $my_state $my_state_2 "| ${TEE} -a $logfile
+			case $my_state_2 in
+			APPLY-ON)
+				print -n "$1 is Physical standby and is on state $my_state_2. So do you want to change state to READ-ONLY OR SWITCH-OVER OR FAIL-OVER (READ-ONLY/SWITCH/FAIL-OVER)?" 
+				while read answer
+				do	
+				case  $answer in 
+				READ-ONLY)
+					apply_off $1
+					if [[ $? = 0 ]]; then
+						open_db $1
+						return $?
+					else		
+						return $?
+					fi
+				;;
+				SWITCH)
+					check_apply
+					switchover $1
+					return $?
+				;;
+				FAIL-OVER)
+                                     check_apply
+					${ECHO} "$1 has  $delta archive log to recover. So wait before switchover"| ${TEE} -a $logfile
+					echo "Fail-OVER to be launch on $1..."
+					failover $1
+					return $?
+				;;
+				*)
+				print -n "$1 is Physical standby and is on state $my_state_2. So do you want to change state to READ-ONLY OR SWITCH-OVER OR FAIL-OVER (READ-ONLY/SWITCH/FAIL-OVER)?" 
+				;;
+				esac
+				done
+					
+			;;
+			APPLY-OFF)
+					print -n "$1 is Physical standby and is on state $my_state_2. So if you want to change state to REDO-APPLY or SWITCH-OVER on it, you need to stop it. Do you want to stop it now?"
+					while read answer
+					do	
+					case  $answer in 
+					
+					yes)
+						offline $1
+						stop_db $1
+						return $?
+					;;
+					no)
+						return 0
+					;;
+					*)
+					print -n "$1 is Physical standby and is on state $my_state_2. So if you want to change state to REDO-APPLY or SWITCH-OVER on it, you need to stop it. Do you want to stop it now?"
+					;;
+					esac
+					done
+			;;
+			*)
+					echo "$1 have state $my_state $my_state_2 and i don't forecast this case!!!"| ${TEE} -a $logfile
+					exit 7
+			;;
+			esac
+		fi
+	fi
+	return rc_start_db
+else
+echo "ERROR in start_db, I expected a dbname as arg!!!"| ${TEE} -a $logfile
+exit 5
+fi	
+
+}
+####End start_db(DBname)##########
+
+#### stop_db_question(DBname)#############
+stop_db_question()
+{
+if [[ $2 = "force" ]]; then
+	stop_db  $1
+	return $?
+else
+	if [[ $1 = $master_db_name ]]; then
+		node=$master_node
+	else
+		node=$aux_node
+	fi	
+	print -n  "Are you sure you want to stop $1 on $node (yes/no) ?"
+	while read answer
+	do	
+	case  $answer in 
+	yes)
+		stop_db  $1
+		return $?
+	;;
+	no)
+		echo "Nothing done"| ${TEE} -a $logfile
+		return 5
+	;;
+	*)
+		print -n  "Are you sure you want to stop $1 on $node (yes/no) ?"
+	;;
+	esac
+	done
+fi
+}
+#### END OF stop_db_question(DBname)#############
+#### stop_db(DBname)#############
+stop_db(){
+rc_stop_db=0
+if [[ $# = 1 ]]; then
+	if [[ $1 = $master_db_name ]]; then
+		sshkey=$sshkey_master_node 
+		node=$master_node
+	else
+		sshkey=$sshkey_aux_node 
+		node=$aux_node
+	fi	
+	if [[ $($SSH -i $sshkey $node "ps -fu $user_ora  | grep pmon | wc -l") != 0 ]];then
+		echo "o I will try to stop $1"| ${TEE} -a $logfile
+		if [[ $is_asm = "Y" ]];then
+			log_stop=$(su -  $user_ora -c " oe ${SID} 2>&1 >/dev/null ; ${HCLBASEDIR}/init.d/DGBROKER/stop.ksh $1")
+		else
+			log_stop=$(su -  $user_ora -c "${HCLBASEDIR}/init.d/DGBROKER/stop.ksh $1")
+		fi
+		if [[ $(${CAT} ${log_stop} | ${GREP} -v "ORA-01109" | ${GREP} "ORA-" |wc -l) != 0 ]];then
+			echo "WARN: There is some ORA- :  See ${log_stop}"| ${TEE} -a $logfile
+		fi	
+		if [[ $($SSH -i $sshkey $node "ps -fu $user_ora  | grep pmon | grep ${SID}  | wc -l") = 0 ]];then
+			echo "INFO : $1 in $node is DOWN "	| ${TEE} -a $logfile
+			rc_stop_db=0
+		else	
+			echo "ERROR : $1 in $node is UP !!!"| ${TEE} -a $logfile
+			rc_stop_db=5
+		fi
+		return rc_stop_db		
+	else
+		echo "o I have nothing to do. $1 is already DOWN."| ${TEE} -a $logfile
+	fi
+else
+echo "ERROR in stop_db, I expected a dbname as arg!!!"| ${TEE} -a $logfile
+exit 5
+fi
+}
+####End stop_db(DBname)##########
+
+##### get_status ###############
+get_status()
+{
+search_primary_db
+case $rc_is_dbup in
+	0)
+		if [[ $is_asm = "Y" ]];then
+			MASTER_LOG_STATE=$(su - $user_ora -c "oe ${SID} 2>&1 >/dev/null ; ${HCLBASEDIR}/init.d/DGBROKER/show_db.ksh  ${master_db_name} ${master_db_name}")
+		else
+			MASTER_LOG_STATE=$(su - $user_ora -c "${HCLBASEDIR}/init.d/DGBROKER/show_db.ksh  ${master_db_name} ${master_db_name}")
+		fi
+		if [[ $(${CAT} ${MASTER_LOG_STATE} | ${GREP} "ORA-" |wc -l) != 0 ]];then
+			echo "WARN: There is some ORA- :  See ${MASTER_LOG_STATE}"| ${TEE} -a $logfile
+		fi
+		MASTER_STATE=$(${CAT} ${MASTER_LOG_STATE} | $EGREP -E 'ERROR|SUCCESS|SHUTDOWN')
+		MASTER_STATE_2=$(${CAT} ${MASTER_LOG_STATE} | $GREP "Intended State" | cut -d: -f2 )	
+
+		if [[ $is_asm = "Y" ]];then
+			AUX_LOG_STATE=$(su - $user_ora -c "oe ${SID}  2>&1 >/dev/null ; ${HCLBASEDIR}/init.d/DGBROKER/show_db.ksh  ${aux_db_name} ${aux_db_name}")
+		else
+			AUX_LOG_STATE=$(su - $user_ora -c "${HCLBASEDIR}/init.d/DGBROKER/show_db.ksh  ${aux_db_name} ${aux_db_name}")
+		fi
+
+		if [[ $(${CAT} ${AUX_LOG_STATE} | ${GREP} "ORA-" |wc -l) != 0 ]];then
+			echo "WARN: There is some ORA- :  See ${AUX_LOG_STATE}"| ${TEE} -a $logfile
+		fi
+		AUX_STATE=$(${CAT} ${AUX_LOG_STATE} | $EGREP -E 'ERROR|SUCCESS|SHUTDOWN')
+		AUX_STATE_2=$(${CAT} ${AUX_LOG_STATE} | $GREP "Intended State" | cut -d: -f2 )	
+	;;
+	1)
+		if [[ $is_asm = "Y" ]];then
+		        MASTER_LOG_STATE=$(su - $user_ora -c "oe ${SID}  2>&1 >/dev/null ; ${HCLBASEDIR}/init.d/DGBROKER/show_db.ksh  ${master_db_name} ${master_db_name}")
+		else
+		        MASTER_LOG_STATE=$(su - $user_ora -c "${HCLBASEDIR}/init.d/DGBROKER/show_db.ksh  ${master_db_name} ${master_db_name}")
+		fi
+		if [[ $(${CAT} ${MASTER_LOG_STATE} | ${GREP} "ORA-" |wc -l) != 0 ]];then
+			echo "WARN: There is some ORA- :  See ${MASTER_LOG_STATE}"| ${TEE} -a $logfile
+		fi
+		MASTER_STATE=$(${CAT} ${MASTER_LOG_STATE} | $EGREP -E 'ERROR|SUCCESS|SHUTDOWN')
+		MASTER_STATE_2=$(${CAT} ${MASTER_LOG_STATE} | $GREP "Intended State" | cut -d: -f2 )	
+
+		AUX_STATE="DOWN"
+		;;
+	2)
+		MASTER_STATE="DOWN"
+		if [[ $is_asm = "Y" ]];then
+			AUX_LOG_STATE=$(su - $user_ora -c "oe ${SID}  2>&1 >/dev/null ; ${HCLBASEDIR}/init.d/DGBROKER/show_db.ksh  ${aux_db_name} ${aux_db_name}")
+		else
+			AUX_LOG_STATE=$(su - $user_ora -c "${HCLBASEDIR}/init.d/DGBROKER/show_db.ksh  ${aux_db_name} ${aux_db_name}")
+		fi
+		if [[ $(${CAT} ${AUX_LOG_STATE} | ${GREP} "ORA-" |wc -l) != 0 ]];then
+			echo "WARN: There is some ORA- :  See ${AUX_LOG_STATE}"| ${TEE} -a $logfile
+		fi
+		AUX_STATE=$(${CAT} ${AUX_LOG_STATE} | $EGREP -E 'ERROR|SUCCESS|SHUTDOWN')
+		AUX_STATE_2=$(${CAT} ${AUX_LOG_STATE} | $GREP "Intended State" | cut -d: -f2 )	
+	;;
+	5)
+		echo "get_status :  Boths $master_db_name and $aux_db_name are down !!!"| ${TEE} -a $logfile
+                return  5
+	;;
+	*)
+		echo "ERROR"| ${TEE} -a $logfile
+	;;
+esac
+if [[ $primary_db_name = $aux_db_name ]]; then
+	echo $aux_db_name " on $aux_node is primary DB and db status is "$AUX_STATE " "$AUX_STATE_2| ${TEE} -a $logfile
+        echo $master_db_name " on $master_node is physical standby DB and db status is "$MASTER_STATE" "$MASTER_STATE_2| ${TEE} -a $logfile
+else
+	echo $aux_db_name " on $aux_node is physical stand by DB and db status is "$AUX_STATE" "$AUX_STATE_2| ${TEE} -a $logfile
+        echo $master_db_name " on $master_node is primary DB and db status is "$MASTER_STATE" "$MASTER_STATE_2	| ${TEE} -a $logfile
+fi
+if [[ $MASTER_STATE = "SUCCESS" && $AUX_STATE = "SUCCESS" ]]; then
+	return 0 
+fi
+}
+
+###END OF get_status ###############
+
+
+##### switchover ###############
+switchover()
+{
+#set -x
+rc_switchover=0
+if [[ $# = 1 ]]; then
+	echo "o I will try to switchover to $1"| ${TEE} -a $logfile
+	if [[ $is_asm = "Y" ]];then
+		log=$(su - $user_ora -c " oe ${SID} 2>&1 >/dev/null ; ${HCLBASEDIR}/init.d/DGBROKER/switchover.ksh ${1}")
+	else
+		log=$(su - $user_ora -c "${HCLBASEDIR}/init.d/DGBROKER/switchover.ksh ${1}")
+
+	fi
+	if [[ $(${CAT} ${log} | ${GREP} "ORA-" |wc -l) != 0 ]];then
+		echo "ERROR: See ${log}"| ${TEE} -a $logfile
+		rc_switchover=5
+	fi	
+	get_status
+	if [[ $rc_switchover = 0 ]]; then
+		echo "Switch to ${1} OK"| ${TEE} -a $logfile
+	else
+		echo "Switch to ${1} KO"| ${TEE} -a $logfile
+	fi
+else
+echo "ERROR in switchover, I expected a dbname as arg!!!"| ${TEE} -a $logfile
+fi
+return $rc_switchover
+}
+
+#####END OF  switchover ########
+##### failover ###############
+failover()
+{
+rc_failover=0
+if [[ $# = 1 ]]; then
+	echo "o I will try to failover to $1"| ${TEE} -a $logfile
+	if [[ $is_asm = "Y" ]];then
+		log=$(su - $user_ora -c " oe ${SID} 2>&1 >/dev/null ; ${HCLBASEDIR}/init.d/DGBROKER/failover.ksh ${1}")
+	else
+		log=$(su - $user_ora -c "${HCLBASEDIR}/init.d/DGBROKER/failover.ksh ${1}")
+	fi
+	if [[ $(${CAT} ${log} | ${GREP} "ORA-" |wc -l) != 0 ]];then
+		echo "ERROR: See ${log}"| ${TEE} -a $logfile
+	fi	
+	echo "o I check if failover is done on $1"| ${TEE} -a $logfile
+	if  [[ $(${GREP} "succeeded." ${log} |wc -l) = 1 ]] ; then
+		echo "INFO : Failover Succeed"| ${TEE} -a $logfile
+		rc_failover=0
+	else
+		echo "ERROR : Failover Failed!!!"| ${TEE} -a $logfile
+		rc_failover=5
+	fi
+else
+echo "ERROR in failover, I expected a dbname as arg!!!"| ${TEE} -a $logfile
+fi
+return $rc_failover
+}
+
+##### END OF failover ###############
+
+
+
+
+######################### MAIN ###############################################################
+logdate=$(date +"%Y%m%d-%H-%M-%S")
+name=$(basename ${0})
+logfile=`echo ${HCLLOG}"/"${name}"_"${1}"_"${2}"_"${3}"_"${logdate}.log`
+
+for ora_app in ${ORACLE_LIST}; do
+    SID=`echo ${ora_app} | sed 's/ora//' | tr "[:lower:]" "[:upper:]"`
+    sid=`echo ${ora_app} | sed 's/ora//'` 
+    is_asm=$(echo ${ASM}  | tr "[:lower:]" "[:upper:]")
+    if [[ $is_asm = "Y" ]]; then
+	user_ora="oracle"
+    else
+    	user_ora=ora${sid}
+    fi	
+#search_primary_db>/dev/null
+
+	case $1 in
+	start)
+		if [[ $mytype = "Master" ]]; then
+			start_db_question $master_db_name $2
+			return $?
+		else
+                        start_db_question $aux_db_name $2
+			return $?
+		fi
+
+	;;
+	start_AUX)
+		start_db_question $aux_db_name $2
+		exit $?
+	;;	
+	start_MASTER)
+		start_db_question $master_db_name $2
+		exit $?
+	;;
+	start_ALL)
+		rc_start_all=0
+		start_db_question $master_db_name $2
+		rc_start_all=$(echo $rc_start_all"+"$? | bc)
+		start_db_question $aux_db_name $2
+		 rc_start_all=$(echo $rc_start_all"+"$? | bc)
+		return $rc_start_all
+	;;
+	stop)
+		if [[ $mytype = "Master" ]]; then
+			stop_db_question $master_db_name $2
+			return $?
+		else
+                        stop_db_question $aux_db_name $2
+			return $?
+		fi
+	;;
+	stop_AUX)		
+		stop_db_question  $aux_db_name $2
+		return $?
+	;;	
+	stop_MASTER)
+		stop_db_question  $master_db_name $2
+		return $?
+	;;
+	stop_ALL)
+		rc_stop_all=0
+		stop_db_question  $master_db_name $2
+		rc_stop_all=$(echo $rc_stop_all"+"$? | bc)
+		stop_db_question  $aux_db_name $2
+		rc_stop_all=$(echo $rc_stop_all"+"$? | bc)
+		return $rc_stop_all
+	;;
+	status)
+		 get_status
+		return $?
+	;;
+	configuration)
+	 	if [[ $DB_CON != "NO_CON" ]]; then	
+			log=$(su - ${user_ora} -c "${HCLBASEDIR}/init.d/DGBROKER/configuration.ksh ${DB_CON} " )
+			while [[ $(${CAT} ${log} | ${GREP} "ORA-16525" |wc -l) = 1 ]]
+			do
+				sleep 10
+				log=$(su - ${user_ora} -c "${HCLBASEDIR}/init.d/DGBROKER/configuration.ksh ${DB_CON} " )
+			done
+			if [[ $(${CAT} ${log} | ${GREP} "ORA-" |wc -l) != 0 ]];then
+				echo "ERROR: See ${log}"| ${TEE} -a $logfile
+				exit 5;
+			else
+				 ${CAT} ${log} | ${TEE} -a $logfile
+			fi
+		else
+		 	echo "Boths DB are down"| ${TEE} -a $logfile
+			exit 5 ; 			
+		fi
+	;;
+	switchover)
+		case $2 in
+		AUX)
+ 		if [[ $DB_CON != "NO_CON" ]]; then
+			if [[ $3 = "force" ]]; then
+				if [[  ${aux_db_name} = ${primary_db_name} ]];then
+					echo "Nothing to do. ${aux_db_name} is already Primary DB"| ${TEE} -a $logfile
+				else
+					switchover ${aux_db_name}		
+				fi
+			else
+				print -n  "Are you sure you want to switchover to $aux_db_name in $aux_node (yes/no) ?"
+				while read answer
+				do
+				case $answer in
+				yes)
+				if [[  ${aux_db_name} = ${primary_db_name} ]];then
+					echo "Nothing to do. ${aux_db_name} is already Primary DB"| ${TEE} -a $logfile
+					break
+				else
+					switchover ${aux_db_name}		
+					break
+				fi
+				;;
+				no)
+				echo "Nothing done"| ${TEE} -a $logfile
+				exit 0
+				;;
+				*)
+				print -n  "Are you sure you want to switchover to $aux_db_name in $aux_node (yes/no) ?"				
+				;;
+				esac
+				done
+			fi
+		else
+		 	echo "Both DB are down"| ${TEE} -a $logfile
+			exit 5 ; 			
+		fi
+		;;
+		MASTER)
+		 if [[ $DB_CON != "NO_CON" ]]; then
+			if [[ $3 = "force" ]]; then
+				if [[  ${master_db_name} = ${primary_db_name} ]];then
+					echo "Nothing to do. ${master_db_name} is already Primary DB"| ${TEE} -a $logfile
+				else
+					switchover ${master_db_name}		
+				fi
+			else
+				print -n  "Are you sure you want to switchover to $master_db_name in $master_node (yes/no) ?"
+				while read answer
+				do
+				case $answer in
+				yes)
+				if [[  ${master_db_name} = ${primary_db_name} ]];then
+					echo "Nothing to do. ${master_db_name} is already Primary DB"| ${TEE} -a $logfile
+					break
+				else
+					switchover ${master_db_name}		
+					break
+				fi
+				;;
+				no)
+				echo "Nothing done"| ${TEE} -a $logfile
+				exit 0
+				;;
+				*)
+				print -n  "Are you sure you want to switchover to $master_db_name in $master_node (yes/no) ?"				
+				;;
+				esac
+				done
+			fi
+		else
+			 echo "Both DB are down"| ${TEE} -a $logfile
+                        exit 5 ;
+		
+		fi	
+		;;
+		*)
+		echo "usage: $0 switchover AUX|MASTER"
+		;;
+		esac
+        ;;
+	stdby_to_reporting)
+		stdby_to_reporting	
+	;;
+	reporting_to_stdby)
+		reporting_to_stdby	
+	;;
+	failover)
+		case $2 in
+		AUX)
+ 		if [[ $DB_CON != "NO_CON" ]]; then
+			if [[ $3 = "force" ]]; then
+				if [[  ${aux_db_name} = ${primary_db_name} ]];then
+					echo "Nothing to do. ${aux_db_name} is already Primary DB"| ${TEE} -a $logfile
+					exit 0
+				else
+					failover ${aux_db_name}		
+					exit $?
+				fi
+			else
+				print -n  "Are you sure you want to Failover to $aux_db_name in $aux_node (yes/no) ?"
+				while read answer
+				do
+				case $answer in
+				yes)
+				if [[  ${aux_db_name} = ${primary_db_name} ]];then
+					echo "Nothing to do. ${aux_db_name} is already Primary DB"| ${TEE} -a $logfile
+					exit $?
+				else
+					failover ${aux_db_name}		
+					exit $?
+				fi
+				;;
+				no)
+				echo "Nothing done"| ${TEE} -a $logfile
+				exit 0
+				;;
+				*)
+				print -n  "Are you sure you want to failover to $aux_db_name in $aux_node (yes/no) ?"				
+				;;
+				esac
+				done
+			fi
+		else
+		 	echo "Both DB are down"| ${TEE} -a $logfile
+			exit 5 ; 			
+		fi
+		;;
+		MASTER)
+		 if [[ $DB_CON != "NO_CON" ]]; then
+			if [[ $3 = "force" ]]; then
+				if [[  ${master_db_name} = ${primary_db_name} ]];then
+					echo "Nothing to do. ${master_db_name} is already Primary DB"| ${TEE} -a $logfile
+					exit 0
+				else
+					failover ${master_db_name}
+					exit $?		
+				fi
+			else
+				print -n  "Are you sure you want to failover to $master_db_name in $master_node (yes/no) ?"
+				while read answer
+				do
+				case $answer in
+				yes)
+				if [[  ${master_db_name} = ${primary_db_name} ]];then
+					echo "Nothing to do. ${master_db_name} is already Primary DB"| ${TEE} -a $logfile
+					exit 0
+				else
+					failover ${master_db_name}		
+					exit $?		
+				fi
+				;;
+				no)
+				echo "Nothing done"| ${TEE} -a $logfile
+				exit 0
+				;;
+				*)
+				print -n  "Are you sure you want to failover to $master_db_name in $master_node (yes/no) ?"				
+				;;
+				esac
+				done
+			fi
+		else
+			 echo "Both DB are down"| ${TEE} -a $logfile
+                        exit 5 ;
+		
+		fi	
+		;;
+		*)
+		echo "usage: $0 failover AUX|MASTER"
+		;;
+		esac
+	;;
+	*)
+			echo "usage: $0 {start|stop|status|start_MASTER|start_AUX|stop_MASTER|stop_AUX|stop_ALL|configuration|switchover|failover|stdby_to_reporting|reporting_to_stdby}"
+			;;
+	esac
+done
+###################### END OF  MAIN ###############################################################
+

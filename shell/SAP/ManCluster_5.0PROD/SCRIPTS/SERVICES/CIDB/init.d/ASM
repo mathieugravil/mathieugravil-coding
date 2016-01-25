@@ -1,0 +1,113 @@
+#!/bin/ksh
+#set -x 
+DIR1=`pwd`
+DIR2=`dirname $0`
+DIR3=`cd $DIR1; cd $DIR2; pwd`
+DIR=`cd $DIR3; pwd`;
+. $DIR/../etc/profile.config
+. $DIR/../../../etc/global.config
+##### ASM_start ###############
+ASM_start()
+{
+rc_ASM_start=0
+ASM_status 2>&1 
+if [[ $? != 0 ]]; then
+	echo "o I will try to start ASM"| ${TEE} -a $logfile
+	su - $user_grid -c " oe +ASM 2>&1 >/dev/null ; crsctl start res -all 2>&1 >/dev/null"
+	sleep 10
+	ASM_status 2>&1 >/dev/null
+	rc_ASM_start=$?
+	if [[ $rc_ASM_start == 0 ]]; then
+	echo "INFO : Start of  ASM SUCCEED"| ${TEE} -a $logfile
+	else
+	echo "ERROR : Start of  ASM FAILED"| ${TEE} -a $logfile
+	fi
+else
+	echo "o ASM is already running"| ${TEE} -a $logfile
+fi
+return $rc_ASM_start
+}
+##### END OF ASM_start ###############
+##### ASM_stop ###############
+ASM_stop()
+{
+rc_ASM_stop=0
+ASM_status 2>&1 
+if [[ $? == 0 ]]; then
+	echo "o I will try to stop ASM"| ${TEE} -a $logfile
+	su - $user_grid -c " oe +ASM 2>&1 >/dev/null ; crsctl stop res -all 2>&1 >/dev/null "
+	sleep 10
+	ASM_status 2>&1 >/dev/null
+	rc_ASM_stop=$?
+	if [[ $rc_ASM_stop == 0 ]]; then
+	echo "INFO : Stop of  ASM SUCCEED"| ${TEE} -a $logfile
+	else
+	echo "ERROR : Stop of  ASM FAILED"| ${TEE} -a $logfile
+	fi
+else
+
+	echo "o ASM is already down"| ${TEE} -a $logfile
+fi
+return $rc_ASM_stop
+}
+##### END OF ASM_start ###############
+
+
+##### ASM_status ###############
+ASM_status()
+{
+rc_ASM_status=0
+echo "o I will check ASM status : " | ${TEE} -a $logfile	
+su - $user_grid -c ' oe +ASM 2>&1 >/dev/null ; crsctl stat res -t' | awk '{if (/^[^ ]+$/){remember=$0}else{print remember gensub(/ [0-9]+/," ",$0)}}' | egrep -v -E '\-|ora.diskmon' | while read RES  TARGET STATE SERVER COMMENTS
+do
+	if [[ $STATE != "ONLINE" ]]; then
+		rc_ASM_status=$(echo $rc_ASM_status + 1 | bc ) 
+	fi
+	if [[ $STATE == $TARGET ]]; then
+		echo "	o " $RES " is " $STATE " as expected" | ${TEE} -a $logfile	
+	else
+		echo "	o " $RES " is " $STATE " whereas expected is " $TARGET | ${TEE} -a $logfile	
+		rc_ASM_status=$(echo $rc_ASM_status + 1 | bc ) 
+	fi
+done
+return $rc_ASM_status
+}
+##### END OF ASM_status ###############
+
+
+######################### MAIN ###############################################################
+logdate=$(date +"%Y%m%d-%H-%M-%S")
+name=$(basename ${0})
+logfile=`echo ${HCLLOG}"/"${name}"_"${1}"_"${2}"_"${3}"_"${logdate}.log`
+
+is_asm=$(echo ${ASM}  | tr "[:lower:]" "[:upper:]")
+if [[ $is_asm = "Y" ]]; then
+	if [[ $SAP_LIST = "" ]]; then
+		user_grid="grid"
+	else
+		user_grid="oracle"
+	fi
+	
+else
+	user_grid=ora${sid}
+fi	
+
+case $1 in
+	start)
+	ASM_start
+	exit $?
+	;;
+	stop)
+	ASM_stop
+	exit $?
+	;;
+	status)
+	ASM_status	
+	exit $?
+	;;
+	*)
+		echo "usage: $0 {start|stop|status}"
+	;;
+esac
+###################### END OF  MAIN ###############################################################
+

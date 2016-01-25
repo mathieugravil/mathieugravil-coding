@@ -1,0 +1,261 @@
+#!/bin/ksh
+
+DIR1=`pwd`
+DIR2=`dirname $0`
+DIR3=`cd $DIR1; cd $DIR2; pwd`
+DIR=`cd $DIR3; pwd`;
+. $DIR/../etc/profile.config
+. $DIR/../../../etc/global.config
+
+ 
+rval=0
+# monte/descend l'adresse IP logique de service
+
+Usage()
+{
+    echo "Usage : `basename $0` up|down Service Interface_P  Interface_L "
+    exit 1
+}
+
+if [ "`$ID -un`" != "root" ] ; then
+    echo "`basename $0` must be run by root !"
+    exit 1
+fi
+
+net_service() {
+    ACTION=$1
+    SERVICE=$2
+    INTERFACE_P=$3
+    PREFIX=$4
+    LABEL=$5
+    
+    [ "$ACTION" != "up" -a "$ACTION" != "down" ] && Usage
+
+    [ -z "$SERVICE" -o -z "$INTERFACE_P" ]  && Usage 
+    
+    PATH=$PATH:/usr/sbin
+    export PATH
+    # --------- Parametres du host logique ------
+    
+    HOST=`uname -n`
+    
+    # --------- Parametres du host logique ------
+    TIMEOUT=3
+    case $ACTION in
+	up)
+	    # --- traitement de la premiere interface --- 
+	    $PING -c $TIMEOUT $SERVICE> /dev/null 2>&1
+	    if [ $? -ne 0 ] ; then
+		# l'adresse IP de service n'est pas active sur le reseau
+		nb=`$IFCONFIG -a | $GREP -w $SERVICE | wc -l`
+		if [ $nb -eq 0 ] ; then
+		    #$IFCONFIG $INTERFACE_P addif $$SERVICE  netmask + broadcast + up
+                    $IP address add $SERVICE/$PREFIX brd + dev $INTERFACE_P label $LABEL
+		    ret=$?
+		    if [ $ret -ne 0 ] ; then
+			#echo "Erreur dans l'activation de l'interface $INTERFACE_P:$INTERFACE_L"
+			return $ret
+		    fi
+		else
+		    #echo "Erreur : Interface logique $SERVICE sur $INTERFACE_P deja configuree"
+		    return 1
+		fi
+	    else
+		# L'adresse IP de service est deja active sur le reseau
+		$IFCONFIG -a | $GREP -w $SERVICE > /dev/null
+		if [ $? -eq 0 ] ; then
+		    echo "$SERVICE est deja actif en local"
+		    return 0
+		else
+		    #echo "Erreur : $SERVICE est deja actif sur une autre machine"
+		    return 1
+		fi
+	    fi
+		# --- traitement de la deuxieme interface --- 
+	    ;;
+
+	down)
+	    # --- traitement de la premiere interface --- 
+	    nb=`$IFCONFIG -a | $GREP -w $SERVICE | wc -l`
+	    if [ $nb -ne 1 ] ; then
+		echo "Interface logique $SERVICE sur $INTERFACE_P deja desactivee"
+		return 0
+	    else
+		#$IFCONFIG $INTERFACE_P down
+		$IP address del $SERVICE/$PREFIX brd + dev $INTERFACE_P 
+		ret=$?
+		if [ $ret -ne 0 ] ; then
+		    #echo "Erreur dans la desactivation Interface logique $SERVICE sur  $INTERFACE_P"
+		    return $ret
+		fi
+	    fi
+		# --- traitement de la deuxieme interface --- 
+	    ;;
+	*)
+	    ;;
+    esac
+}
+
+TabSrv=($SERVICES)
+TabINT_P=($INTERFACES)
+
+nbTabSrv=${#TabSrv[@]}
+nbTabINT_P=${#TabINT_P[@]}
+
+if [ $nbTabSrv -ne $nbTabINT_P ]; then
+   echo
+   echo "In the config file profile.config, the variables SERVICES and INTERFACES must have the same element number"
+   echo "Variable SERVICES have $nbTabSrv elements while the variable TabINT_P have only $nbTabINT_P elements"
+   echo "For each service in the variable SERVICES there must be one interface in the variable INTERFACES"
+   echo 
+   exit 1
+fi
+
+case "$1" in
+    'status')
+    i=0
+    for serv in $SERVICES; do
+        part1=$( echo $serv | $CUT -d. -f 1)
+        expr $part1 + 1 > /dev/null 2>&1
+        if [ $? -ne 0 ]; then
+           hserv=$(  $GETENT hosts $serv | $AWK '{ print $1}' )
+           if [[ $hserv = "" ]]; then
+                echo "logical host $serv is unkown"
+                echo "add the IP address in /etc/hosts or in the DNS"
+                exit 1
+           fi
+        else
+           hserv=$serv
+        fi
+
+        prefix=$(  $IP address show ${TabINT_P[$i]} | $GREP inet  | $GREP -v link | $GREP -v ${TabINT_P[$i]}: | $AWK '{ print $2 }' | $CUT -d/ -f 2 )
+        logIntf=$( $IP address show ${TabINT_P[$i]} | $GREP ${hserv}/ | $AWK '{ print $NF }' )
+        nbIntf=$( $IP address show ${TabINT_P[$i]} | $GREP  ${TabINT_P[$i]}:[0-9] | $WC -l )
+        nextIndex=$(( nbIntf + 1 ))
+        newIntf=${TabINT_P[$i]}:$nextIndex
+
+        if [ ! -z "$logIntf" ]; then
+                echo "  o Logical host $hserv: OK "
+	else
+                echo "  o Logical host $hserv: NOK "
+		rval=$( echo $rval +1 | bc) 
+		
+        fi
+
+        i=$(( i + 1 ))
+    done
+
+;;
+    'start')
+    rval=0
+    echo "O Starting NET"
+    # Demarrage  du service reseau du logical host
+    echo "  o List of active interfaces: "
+    $IFCONFIG -a
+    i=0
+    for serv in $SERVICES; do
+        part1=$( echo $serv | $CUT -d. -f 1)
+        expr $part1 + 1 > /dev/null 2>&1
+        if [ $? -ne 0 ]; then
+	   hserv=$(  $GETENT hosts $serv | $AWK '{ print $1}' )
+           if [[ $hserv = "" ]]; then
+		echo "logical host $serv is unkown"
+		echo "add the IP address in /etc/hosts or in the DNS"
+		exit 1
+	   fi
+	else
+	   hserv=$serv
+	fi
+
+        prefix=$(  $IP address show ${TabINT_P[$i]} | $GREP inet  | $GREP -v link | $GREP -v ${TabINT_P[$i]}: | $AWK '{ print $2 }' | $CUT -d/ -f 2 )
+        logIntf=$( $IP address show ${TabINT_P[$i]} | $GREP ${hserv}/ | $AWK '{ print $NF }' )
+        nbIntf=$( $IP address show ${TabINT_P[$i]} | $GREP  ${TabINT_P[$i]}:[0-9] | $WC -l )
+        nextIndex=$(( nbIntf + 1 ))
+	newIntf=${TabINT_P[$i]}:$nextIndex
+        
+	if [[ -z $logIntf ]]; then
+           #echo net_service up $hserv ${TabINT_P[$i]} $prefix $newIntf
+           net_service up $hserv ${TabINT_P[$i]} $prefix $newIntf
+	   if [ $? -ne 0 ]; then
+	      echo "  o Creation of the logical host $hserv on $newIntf: NOK"
+#	      echo "  o Status: 1"
+	      exit 1 
+	   else
+	      echo "  o Creation of the logical host $hserv on $newIntf: OK"
+	   fi
+	else
+        	echo "  o Creation of the logical host $hserv: OK (already exists on $logIntf)"
+	fi
+	
+	i=$(( i + 1 ))
+    done
+
+
+    
+    
+;;
+'stop') 
+    echo "O Stopping NET"
+    echo "  o List of active interfaces: "
+    $IFCONFIG -a
+    i=0
+    for serv in $SERVICES; do
+        part1=$( echo $serv | $CUT -d. -f 1)
+        expr $part1 + 1 > /dev/null 2>&1
+        if [ $? -ne 0 ]; then
+           hserv=$(  $GETENT hosts $serv | $AWK '{ print $1}' )
+           if [[ $hserv = "" ]]; then
+                echo "logical host $serv is unkown"
+                echo "add the IP address in /etc/hosts or in the DNS"
+                exit 1
+           fi
+        else
+           hserv=$serv
+        fi
+
+	
+        logIntf=$( $IP address show | $GREP $hserv | $AWK '{ print $NF}' )
+        if [[ -z $logIntf ]]; then
+           echo "  o Deletion of the logical host $hserv: OK (already done)"
+           if [ $? -ne 0 ]; then
+              echo "  o Deletion of the logical host $hserv: NOK"
+#              echo "  o Status: 1"
+              exit 1
+           fi
+        else
+            prefix=$( $IP address show | $GREP $hserv | $AWK '{ print $2 }' | $CUT -d/ -f 2 )
+            physIntf=$( $IP address show | $AWK "/UP/ {INT=\$2}; /$hserv\// {print INT}"  | $SED 's/://g' )
+            newIntf=$( $IP address show | $GREP $hserv | $AWK '{ print $NF }' )
+
+	    if [ $physIntf != ${TabINT_P[$i]} ]; then
+		echo "  o Pb in the configuration file profile.config. "
+		echo "    The service $hserv is supposed to be configured on interface ${TabINT_P[$i]}, found $physIntf !"
+		echo "    Please correct the file and rerun the script."
+		echo "  o Deletion of the logical host $hserv: NOK "
+#                echo "  o Status: 1"
+		exit 1
+	    fi
+            #echo net_service down $hserv $physIntf $prefix
+           net_service down $hserv ${TabINT_P[$i]} $prefix $newIntf
+	   if  [ $? -eq 0 ]; then
+		   echo "  o Deletion of the logical host $hserv on $newIntf: OK"
+	   else
+		   echo "  o Deletion of the logical host $hserv on $newIntf: NOK"
+	   fi
+        fi
+
+        i=$(( i + 1 ))
+    done
+
+
+
+
+;;
+*)
+      echo "usage: $0 {start|stop|status}"
+;;
+
+esac
+
+#echo "  o Status: $rval"
+exit $rval

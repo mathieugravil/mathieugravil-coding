@@ -1,0 +1,187 @@
+#!/bin/ksh
+# -------------------------------------------------------------------------
+# AUTEUR: Ahmed Younsi                                                    -
+# CREATION DATE : 17/08/2013                                              -
+# MODIFIED BY:                                                            -
+# MODIFIED ON:                                                            -
+# COMMENTS:                                                               -
+# -------------------------------------------------------------------------
+
+########################## LOADING CONFIG FILE ################################
+DIR1=`pwd`
+DIR2=`dirname $0`
+DIR3=`cd $DIR1; cd $DIR2; pwd`
+DIR=`cd $DIR3; pwd`;
+. $DIR/../../SERVICES/CIDB/etc/profile.config
+. $DIR/../../etc/global.config
+checkconf_file=`$ECHO $DIR/../../etc/checkconf.config`
+
+SVCADMIN=$ADMIN_HCLBASEDIR/svcadmin
+TMPDIR=/tmp
+mailfile=$TMPDIR/mail.tmp
+
+search_primary() {
+   #$SSH -i $sshkey_master_node $master_node $SVCADMIN check NET > /dev/null
+   $SSH -i $sshkey_master_node $master_node $INITDIR/NET status > /dev/null
+   if [[ $? -eq  0 ]]; then
+     primary_node=$master_node
+     primary_key=$sshkey_master_node
+     secondary_node=$aux_node
+     secondary_key=$sshkey_aux_node
+  else
+     primary_node=$aux_node
+     primary_key=$sshkey_aux_node
+     secondary_node=$master_node
+     secondary_key=$sshkey_master_node
+  fi
+echo "primary_node="$master_node 
+}
+
+
+check() {
+   if [[ -z $sshkey_master_node ]]; then
+      $ECHO "Error. The variable sshkey_master_node must be set in  $HCLBASEDIR/etc/profile.config"
+      exit 1
+   fi
+
+   if [[ -z $sshkey_aux_node ]]; then
+      $ECHO "Error. The variable sshkey_aux_node must be set in  $HCLBASEDIR/etc/profile.config"
+      exit 1
+   fi
+
+   if [[ -z $checkconf_file ]]; then
+      $ECHO "Error. The variable checkconf_file must be set in  $HCLBASEDIR/etc/checkconf.config"
+      exit 1
+   fi
+   > $mailfile
+}
+
+clean() {
+  [[ -f $mailfile ]] && $RM $mailfile
+# $RM $tmpvg_list $tmpvg_file1 $tmpvg_file2
+}
+
+
+
+check_cluster_config() {
+   $CAT  $checkconf_file | $SED "s/#.*//" | $GREP check | while read line
+ do
+      file2check=$($ECHO $line | $AWK -F: '{ print $1 }' )
+      action1=$($ECHO $line | $AWK -F: '{ print $2 }' )
+      action2=$($ECHO $line | $AWK -F: '{ print $3 }' )
+
+    # Check if the file exists
+     $SSH -i $sshkey_master_node $master_node [[ -f $file2check ]] 
+     if [[ $? -ne 0  ]]; then
+          $ECHO "ERROR. The file $file2check on $master_node does not exist" | $TEE -a $mailfile
+     fi
+     $ECHO "File $file2check exists on $master_node "
+     $SSH -i $sshkey_aux_node $aux_node [[ -f $file2check ]]
+     if [[ $? -ne 0 ]]; then
+          $ECHO "ERROR. The file $file2check on $aux_node does not exist" | $TEE -a $mailfile
+     fi
+$ECHO "File $file2check exists on $aux_node "
+
+    for action in $action1 $action2; do
+       case "$action" in
+          'checksum')  
+                      master_sum=$( $SSH -i $sshkey_master_node $master_node $SUM $file2check )
+                      aux_sum=$( $SSH  -i $sshkey_aux_node $aux_node $SUM $file2check )
+                      if [[ $master_sum != $aux_sum ]]; then
+       		   $ECHO "ERROR. The file $file2check is different on $master_node and $aux_node of the cluster $cluster_name" | $TEE -a $mailfile
+                      fi
+$ECHO "Files $file2check have the same content.  "
+         ;; 
+
+          'checkperm')
+                      master_perm=$( $SSH -i $sshkey_master_node $master_node $LS -l $file2check |  $AWK '{ print $1,$3,$4 }' )
+                      aux_perm=$( $SSH -i $sshkey_aux_node $aux_node $LS -l $file2check |  $AWK '{ print $1,$3,$4 }' )
+
+                      if [[ $master_perm != $aux_perm ]]; then
+       		   $ECHO "ERROR. The file $file2check has different permissions on $master_node ($master_perm) and $aux_node ($aux_perm) of the cluster $cluster_name" | $TEE -a $mailfile
+                      fi
+$ECHO "Files $file2check have the same permissions.  "
+
+        ;;
+       esac 
+    done
+   done
+}
+##################################################################
+#### START CHECK ORACLE LSPATCH ##################################
+##################################################################
+check_lspatches(){
+sid=`echo $INSTANCE | tr "[:upper:]" "[:lower:]"`
+orasid=`echo "ora${sid}"`
+oracle_home_master=`$SSH -i $sshkey_master_node $master_node su - ${orasid} -c "env | grep ORACLE_HOME| cut -d= -f2" `
+cmd_master=`echo "'"${oracle_home_master}"/OPatch/opatch lspatches'"`
+$SSH -i $sshkey_master_node $master_node su - ${orasid} -c ${cmd_master} >$TMPDIR/Opatch_master
+if [[ $? -ne 0 ]] ; then
+echo "Error  when launch $cmd_master on $master_node "
+exit  5
+fi
+
+oracle_home_aux=`$SSH -i $sshkey_aux_node $aux_node su - ${orasid} -c "env | grep ORACLE_HOME| cut -d= -f2" `
+cmd_aux=`echo "'"${oracle_home_aux}"/OPatch/opatch lspatches'"`
+$SSH -i $sshkey_aux_node $aux_node su - ${orasid} -c ${cmd_aux}>$TMPDIR/Opatch_aux
+if [[ $? -ne 0 ]] ; then
+echo "Error  when launch $cmd_aux on $aux_node "
+exit  5
+fi
+diff $TMPDIR/Opatch_master $TMPDIR/Opatch_aux
+rc=$?
+if [[ $rc -eq 0 ]] ; then
+echo "Oracle have the same patches level" 
+fi
+return $?
+}
+
+##################################################################
+####  END  CHECK ORACLE LSPATCH ##################################
+##################################################################
+##################################################################
+#### START CHECK SAP VERSION    ##################################
+##################################################################
+check_sap_version(){
+sid=`echo $INSTANCE | tr "[:upper:]" "[:lower:]"`
+sidadm=`echo "${sid}adm"`
+$SSH -i $sshkey_master_node $master_node su - ${sidadm} -c "disp+work" >$TMPDIR/SAP_master
+ if [[ $? -ne 0 ]] ; then
+ echo "Error  when launch disp+work on $master_node "
+ exit  5
+fi
+
+$SSH -i $sshkey_aux_node $aux_node su - ${sidadm} -c "disp+work" > $TMPDIR/SAP_aux
+ if [[ $? -ne 0 ]] ; then
+ echo "Error  when launch disp+work on $aux_node "
+ exit  5
+fi
+diff $TMPDIR/SAP_master $TMPDIR/SAP_aux
+rc=$?
+if [[ $rc -eq 0 ]] ; then
+echo "SAP have the same patches level" 
+fi
+return $?
+
+
+}
+
+##################################################################
+####  END  CHECK SAP VERSION    ##################################
+##################################################################
+sendMail() {
+set -x
+   if [[ $SENDMAIL = yes ]]; then
+       $CAT $mailfile | $MAILX -s "ERROR in config of $cluster_name" $EMAIL 
+   fi
+}
+
+if [[ $1 = "sendmail" ]]; then
+   SENDMAIL=yes
+fi
+
+check
+search_primary
+check_cluster_config
+check_lspatches
+check_sap_version

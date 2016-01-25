@@ -1,0 +1,129 @@
+#!/bin/sh
+
+### BEGIN INIT INFO
+# Provides:          spawner
+# Required-Start:
+# Should-Start:      $network $named $remote_fs xinetd
+# Required-Stop:
+# Should-Stop:
+# Default-Start:     3 5
+# Default-Stop:      0 1 2 6
+# chkconfig:         345 91 50
+# Short-Description: archive rc-scripts
+# Description:       archive rc-scripts
+#       will start or stop OpenText archive rc-scripts
+#       located in  /opt/OPENTEXT/rc
+#       (e.g. spawner)
+### END INIT INFO
+
+# Startup Script for OpenText archive
+PROFILE=/opt/opentext/PRD/spawner/config/setup/profile
+
+
+# SCCSID="@(#)$Id: //products/comp/as.basics/10.5.0-branch/pkg/BASE/sh_src/base/rc.spawner#1 $"
+
+CONF_DIRS_DIR=/etc/opentext/conf_dirs
+
+SPAWNER_START_SCRIPT_NAME=S18BASE
+SPAWNER_STOP_SCRIPT_NAME=K48BASE
+
+# Test, if utility "sed" is available in PATH
+# If not in PATH, then add some basic paths to PATH
+# (especially necessary on HP-UX during boot, because only /sbin in PATH)
+WHICH_OUTPUT=`which sed`
+ret=$?
+if [ $ret -ne 0 ]
+then
+  PATH=$PATH:/sbin:/usr/sbin:/usr/bin:/bin
+  export PATH
+  echo "Because \"which\" or \"sed\" utilities not found, appending \"/sbin:/usr/sbin:/usr/bin:/bin\" to PATH inside script"
+fi
+
+SPAWNER_CONFIG_DIR=`sed -n -e ' s!CONFIG *= *\"\(.*\)\"!\1!p' < $CONF_DIRS_DIR/00SPAWNER.conf`
+
+ret=$?
+if [ $ret -ne 0 ]; then
+     echo "Error: failed read of file $CONF_DIRS_DIR/00SPAWNER.conf - no attempt done to start Spawner service"
+     return 1
+fi
+
+PROFILE=$SPAWNER_CONFIG_DIR/setup/profile
+
+
+if [ -f $PROFILE ]; then
+        . $PROFILE
+else
+     echo "Error: no profile ($PROFILE) found - no attempt done to start Spawner"
+
+        exit 1
+fi
+
+
+RC_DIR=$SPAWNER_CONFIG_DIR/../rc
+
+# Starts the complete archive system
+
+StartArchive ()
+{
+        if [ -z "$RC_DIR" ]
+        then
+                exit 1
+        fi
+        if [ "$SYSTEM" = "IRIX" ]
+        then
+                /sbin/chkconfig ixos
+                if [ $? -ne 0 ]
+                then
+                        exit 0
+                fi
+        fi
+
+        SCRIPTFILE=$RC_DIR/$SPAWNER_START_SCRIPT_NAME
+
+        sh $SCRIPTFILE start
+		echo $?
+}
+
+# Stops the complete archive system
+StopArchive ()
+{
+        if [ -z "$RC_DIR" ]
+        then
+                exit 1
+        fi
+
+        SCRIPTFILE=$RC_DIR/$SPAWNER_STOP_SCRIPT_NAME
+
+        sh $SCRIPTFILE stop
+		echo $?
+}
+
+# Stops, waits 30 seconds and starts the complete archive system
+RestartArchive ()
+{
+        if [ -z "$RC_DIR" ]
+        then
+                exit 1
+        fi
+
+                StopArchive
+
+        sleep 30
+
+                StartArchive
+}
+
+StatusArchive ()
+{
+ /opt/opentext/PRD/spawner/bin/spawncmd status
+ echo $?
+}
+
+case $1 in
+        start)          StartArchive ;;
+        stop)           StopArchive ;;
+        restart)        RestartArchive ;;
+		status)			StatusArchive ;;
+        start_msg)      echo "Starting Archive Spawner" ;;
+        stop_msg)       echo "Stopping Archive Spawner" ;;
+esac
