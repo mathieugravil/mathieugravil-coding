@@ -357,7 +357,7 @@ then
         done
 
 echo " "
-echo "o Mount ing of Repository  :"
+echo "o Mounting of Repository  :"
         for j in ${repo_to_be_mounted}
         do
                 myrep="${j};${DBHOST}:${DBPORT}/${ORACLE_SID};O;${ORACLE_USER};${ORACLE_PASSWORD}"
@@ -370,6 +370,7 @@ echo "o Mount ing of Repository  :"
                 free_ports=$(echo ${free_ports} |sed "s/${port3}//" )
                 if [[ $2 = "ALL" ]]; then
                         DoRepoAction ${LOGICAL_HOSTNAME} $myrep repMount $new_port
+						repo_to_be_started=$(echo ${repo_to_be_started}" "${repo_to_be_mounted})
                 else
                         print -n  "Are you sure you want to mount ${j}  (yes/no)?"
                         while read answer
@@ -392,9 +393,10 @@ echo "o Mount ing of Repository  :"
                 fi
         done
         #repo_to_be_started=$(echo ${repo_to_be_started}" "${repo_to_be_mounted})
-echo " "
-echo "o Starting of repository : "
+
         fi
+		echo " "
+echo "o Starting of repository : "
         for l in ${repo_to_be_started}
         do
                 myrep="${l};${DBHOST}:${DBPORT}/${ORACLE_SID};O;${ORACLE_USER};${ORACLE_PASSWORD}"
@@ -458,6 +460,7 @@ do
         myrep="${i};${DBHOST}:${DBPORT}/${ORACLE_SID};O;${ORACLE_USER};${ORACLE_PASSWORD}"
         if [[ $2 = "ALL" ]]; then
                 DoRepoAction ${LOGICAL_HOSTNAME} $myrep repStop ${ADMIN_PASS_REPO}
+				repo_to_be_unmounted=$( echo ${repo_to_be_unmounted}" "${repo_to_be_stopped})
         else
         print -n  "Are you sure you want to stop ${i}  (yes/no)?"
         while read answer
