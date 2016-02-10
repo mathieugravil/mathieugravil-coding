@@ -125,7 +125,7 @@ then
                         set echo OFF heading  off feedback OFF ;
                         select CATALOG_TAG FROM A2I_XCAT_DBS.A2I_CATALOGS;
                         exit ;
-                        END
+END
                         )
         if [[ $(echo $REPO_LIST_IN_DB | grep "ORA-" | wc -l) = 0 ]];
         then
@@ -205,37 +205,46 @@ fi
 ###### ${4} = PORT/PASSWORD ######
 DoRepoAction()
 {
-if [[ $# = 4 ]];
+if [[ $# >  2 ]];
 then
-        case $3 in
-        repMount)
+	case $3 in
+	repMount)
                 echo "o I will try to mount $(echo ${2}| cut -d';' -f1 ) on port ${4}: "
                 (clix repMount  ${1}  ${2} ${4}           2>&1) >/dev/null
-        ;;
-        repStart)
+	;;
+	repStart)
                 echo "o I will try to start $(echo ${2}| cut -d';' -f1 ) :"
                 (clix repStart ${1} ${2} Admin:${4}   -W ) 2>&1 >/dev/null
-        ;;
-        repStop)
+	;;
+	repStop)
                 echo "o I will try to stop $(echo ${2}| cut -d';' -f1 ) :"
-                (clix repStop   ${1} ${2} Admin:${4}) 2>&1 >/dev/null
-        ;;
-        repUnMount)
+        	(clix repStop   ${1} ${2} Admin:${4}) 2>&1 >/dev/null
+	;;
+	repUnMount)
                 echo "o I will try to unmount $(echo ${2}| cut -d';' -f1 ) :"
-                (clix repUnMount ${1} ${2} 2>&1) >/dev/null
-        ;;
-        *)
-                echo "ERROR : ${3}:  ACTION NOT DEFINED!!!"
-        ;;
-        esac
-        if [[ $? != 0 ]];
-        then
-                echo "  ERROR : I didn't manage to ${3} $(echo ${2}| cut -d';' -f1 )"
-                return 3
-        else
-                echo "  OK: ${3} is done on $(echo ${2}| cut -d';' -f1 )"
-                return 0
-        fi
+        	(clix repUnMount ${1} ${2}) 2>&1 >/dev/null
+	;;
+	repRepair)
+		 echo "o I will try to check/repair $(echo ${2}| cut -d';' -f1 ) :"
+                (clix repRepair ${1} ${2} Admin:${4}) 2>&1 >/dev/null
+
+	;;
+	cpyArchive)
+		 echo "o I will try to backup $(echo ${2}| cut -d';' -f1 ) in ${4} :"
+                (clix cpyArchive ${1} ${2}) 2>&1 >/dev/null
+	;;
+	*)
+        	echo "ERROR : ${3}:  ACTION NOT DEFINED!!!"
+	;;
+	esac
+	if [[ $? != 0 ]];
+	then
+		echo "  ERROR : I didn't manage to ${3} $(echo ${2}| cut -d';' -f1 )"
+		return 3
+	else
+		echo "  OK: ${3} is done on $(echo ${2}| cut -d';' -f1 )"
+		return 0
+	fi
 else
       echo "Missing args!!!"
       return 5
@@ -249,6 +258,9 @@ fi
 
 ###### START OF MAIN ######
 case $1 in
+#############################
+########## START  ###########
+#############################
 start)
 status_db ${ORACLE_SID}
 if [[ $? = 0 ]];
@@ -368,69 +380,75 @@ echo "o Mounting of Repository  :"
                 free_ports=$(echo ${free_ports} |sed "s/${new_port}//" )
                 free_ports=$(echo ${free_ports} |sed "s/${port2}//" )
                 free_ports=$(echo ${free_ports} |sed "s/${port3}//" )
-                if [[ $2 = "ALL" ]]; then
-                        DoRepoAction ${LOGICAL_HOSTNAME} $myrep repMount $new_port
-                        repo_to_be_started=$(echo ${repo_to_be_started}" "${repo_to_be_mounted})
-                else
-                        print -n  "Are you sure you want to mount ${j}  (yes/no)?"
-                        while read answer
-                                do
-                                        case  $answer in
-                                                yes)
-                                                DoRepoAction ${LOGICAL_HOSTNAME} $myrep repMount $new_port
-                                                repo_to_be_started=$(echo ${repo_to_be_started}" "${j})
-                                                break
-                                                ;;
-                                                no)
-                                                echo "Nothing done"
-                                                break
-                                                ;;
-                                                *)
-                                                print -n  "Are you sure you want to mount ${j}  (yes/no)?"
-                                                ;;
-                                        esac
-                                done
-                fi
+		if [[ $2 = "ALL" ]]; then
+			DoRepoAction ${LOGICAL_HOSTNAME} $myrep repMount $new_port
+        		repo_to_be_started=$(echo ${repo_to_be_started}" "${repo_to_be_mounted})
+		else
+			print -n  "Are you sure you want to mount ${j}  (yes/no)?"
+			while read answer
+       				do
+       					case  $answer in
+          					yes)
+						DoRepoAction ${LOGICAL_HOSTNAME} $myrep repMount $new_port
+						repo_to_be_started=$(echo ${repo_to_be_started}" "${j})
+            					break
+						;;
+            					no)
+               					echo "Nothing done"
+						break
+            					;;
+            					*)
+						print -n  "Are you sure you want to mount ${j}  (yes/no)?"
+            					;;
+            				esac
+           			done
+		fi
         done
         #repo_to_be_started=$(echo ${repo_to_be_started}" "${repo_to_be_mounted})
         fi
 echo " "
+echo ${repo_to_be_started}
+if [[ $3 != "MOUNT" ]]; then
 echo "o Starting of repository : "
         for l in ${repo_to_be_started}
         do
                 myrep="${l};${DBHOST}:${DBPORT}/${ORACLE_SID};O;${ORACLE_USER};${ORACLE_PASSWORD}"
-                if [[ $2 = "ALL" ]]; then
-                        DoRepoAction ${LOGICAL_HOSTNAME} $myrep repStart ${ADMIN_PASS_REPO}
-                else
-                        print -n  "Are you sure you want to start ${l}  (yes/no)?"
-                        while read answer
-                                do
-                                        case  $answer in
-                                                yes)
-                                                DoRepoAction ${LOGICAL_HOSTNAME} $myrep repStart ${ADMIN_PASS_REPO}
-                                                break
-                                                ;;
-                                                no)
-                                                echo "Nothing done"
-                                                break
-                                                ;;
-                                                *)
-                                                print -n  "Are you sure you start to mount ${l}  (yes/no)?"
-                                                ;;
-                                        esac
-                                done
-                fi
+		if [[ $2 = "ALL" ]]; then
+			DoRepoAction ${LOGICAL_HOSTNAME} $myrep repStart ${ADMIN_PASS_REPO}
+		else
+			print -n  "Are you sure you want to start ${l}  (yes/no)?"
+			while read answer
+       				do
+       					case  $answer in
+          					yes)
+						DoRepoAction ${LOGICAL_HOSTNAME} $myrep repStart ${ADMIN_PASS_REPO}
+						break
+            					;;
+            					no)
+               					echo "Nothing done"
+						break
+            					;;
+            					*)
+						print -n  "Are you sure you start to mount ${l}  (yes/no)?"
+            					;;
+            				esac
+           			done
+		fi
         done
+fi
 else
         echo "ERROR : start of  ${SID_MDM} Failed!! You must start db ${ORACLE_SID} before !!!"
 fi
 ;;
+#############################
+########## STOP   ###########
+#############################
 stop)
-status_db ${ORACLE_SID} 2>&1 >/dev/null
+status_db ${ORACLE_SID} 2>&1 >/dev/null 
 rcdb=$?
 status_MD ${SID_MDM} MDS${SYS_NUMBER_MDS} ${OS_USER} 2>&1 >/dev/null
 rcmdm=$?
-if  [[ $rcdb = 0 ]] && [[   $rcmdm = 0 ]];
+if  [[ $rcdb = 0 ]] ;
 then
 repo_to_be_stopped=""
 repo_to_be_unmounted=""
@@ -457,51 +475,52 @@ echo "o Stopping Repository : "
 for i in ${repo_to_be_stopped}
 do
         myrep="${i};${DBHOST}:${DBPORT}/${ORACLE_SID};O;${ORACLE_USER};${ORACLE_PASSWORD}"
-        if [[ $2 = "ALL" ]]; then
-                DoRepoAction ${LOGICAL_HOSTNAME} $myrep repStop ${ADMIN_PASS_REPO}
-                repo_to_be_unmounted=$( echo ${repo_to_be_unmounted}" "${repo_to_be_stopped})
+	if [[ $2 = "ALL" ]]; then
+		DoRepoAction ${LOGICAL_HOSTNAME} $myrep repStop ${ADMIN_PASS_REPO}
+		repo_to_be_unmounted=$( echo ${repo_to_be_unmounted}" "${repo_to_be_stopped})
         else
         print -n  "Are you sure you want to stop ${i}  (yes/no)?"
         while read answer
         do
         case  $answer in
-                yes)
-                        DoRepoAction ${LOGICAL_HOSTNAME} $myrep repStop ${ADMIN_PASS_REPO}
-                        repo_to_be_unmounted=$( echo ${repo_to_be_unmounted}" "${i})
-                        break
+        	yes)
+			DoRepoAction ${LOGICAL_HOSTNAME} $myrep repStop ${ADMIN_PASS_REPO}
+			repo_to_be_unmounted=$( echo ${repo_to_be_unmounted}" "${i})
+			break
                 ;;
                 no)
-                        echo "Nothing done"
-                        break
+                	echo "Nothing done"
+			break
                 ;;
                 *)
-                        print -n  "Are you sure you want to stop ${i}  (yes/no)?"
+                	print -n  "Are you sure you want to stop ${i}  (yes/no)?"
                 ;;
                 esac
         done
         fi
-
+	
 done
+if [[ $3 != "MOUNT" ]]; then
 echo " "
 echo " o Unmounting Repository : "
 #repo_to_be_unmounted=$( echo ${repo_to_be_unmounted}" "${repo_to_be_stopped})
 for i in ${repo_to_be_unmounted}
 do
         myrep="${i};${DBHOST}:${DBPORT}/${ORACLE_SID};O;${ORACLE_USER};${ORACLE_PASSWORD}"
-        if [[ $2 = "ALL" ]]; then
-                DoRepoAction ${LOGICAL_HOSTNAME} $myrep repUnMount 1
+	if [[ $2 = "ALL" ]]; then
+		DoRepoAction ${LOGICAL_HOSTNAME} $myrep repUnMount 1 
         else
         print -n  "Are you sure you want to unmount ${i}  (yes/no)?"
         while read answer
         do
         case  $answer in
                 yes)
-                        DoRepoAction ${LOGICAL_HOSTNAME} $myrep repUnMount 1
-                        break
+			DoRepoAction ${LOGICAL_HOSTNAME} $myrep repUnMount 1 
+			break
                 ;;
                 no)
                         echo "Nothing done"
-                        break
+			break
                 ;;
                 *)
                         print -n  "Are you sure you want to unmount ${i}  (yes/no)?"
@@ -529,7 +548,7 @@ do
                 fi
         done
 done
- echo $repo_to_be_stopped " "  $repo_to_be_unmounted
+ echo $repo_to_be_stopped " "  $repo_to_be_unmounted 
 if [[ $repo_to_be_stopped = "" ]]  &&  [[ $repo_to_be_unmounted = "" ]];
 then
         echo "o I will try to stop MDIS${SYS_NUMBER_MDIS} :"
@@ -542,7 +561,7 @@ then
         fi
 else
         echo "o Please unmount and stop repositories : ${repo_to_be_stopped} ${repo_to_be_unmounted} , if you want to stop mdm server!!!"
-        exit 5
+	exit 5	
 fi
 status_MD ${SID_MDM} MDS${SYS_NUMBER_MDS} ${OS_USER} 2>&1 >/dev/null
 if [[ $? = 0 ]];
@@ -558,14 +577,133 @@ then
 else
         echo "o MDS${SYS_NUMBER_MDS} is already stopped"
 fi
+fi
 else
-        echo " DB or MDS is DOWN"
+	echo " DB or MDS is DOWN"
+fi	
+;;
+#############################
+########## REPAIR ###########
+#############################
+repair)
+status_db ${ORACLE_SID} 2>&1 >/dev/null 
+rcdb=$?
+status_MD ${SID_MDM} MDS${SYS_NUMBER_MDS} ${OS_USER} 2>&1 >/dev/null
+rcmdm=$?
+if  [[ $rcdb = 0 ]] && [[   $rcmdm = 0 ]];
+then
+repolist=$(GetRepolist ${ORACLE_SID} ${ORACLE_USER} ${ORACLE_PASSWORD})
+repo_to_be_repaired=''
+repo_to_be_stopped=''
+for i in  ${repolist}
+do
+        GetRepoStatus ${LOGICAL_HOSTNAME} $i  ${DBHOST} ${DBPORT} ${ORACLE_SID} ${ORACLE_USER} ${ORACLE_PASSWORD} ${ADMIN_PASS_REPO} | while IFS="#" read repo bla status bla2 port
+        do
+		if [[ ${status} = "STOPPED" ]];
+                then
+			repo_to_be_repaired=$( echo $repo_to_be_repaired $i)
+		else
+			repo_to_be_stopped=$(echo $repo_to_be_stopped $i )
+		fi
+	done
+done
+for l in ${repo_to_be_stopped}
+do
+
+	 myrep="${l};${DBHOST}:${DBPORT}/${ORACLE_SID};O;${ORACLE_USER};${ORACLE_PASSWORD}"
+	if [[ $2 = "ALL" ]]; then
+		 DoRepoAction ${LOGICAL_HOSTNAME} $myrep repStop ${ADMIN_PASS_REPO}	
+		 repo_to_be_repaired=$( echo $repo_to_be_repaired $l)
+	else
+		echo " WARNING :  You must stop the repo before repair it !!!"
+ 		print -n  "Are you sure you want to Stop ${l}  (yes/no)?"
+                                while read answer
+                                do
+                                case  $answer in
+                                        yes)
+						DoRepoAction ${LOGICAL_HOSTNAME} $myrep repStop ${ADMIN_PASS_REPO}
+				                repo_to_be_repaired=$( echo $repo_to_be_repaired $l)
+                                                break
+                                        ;;
+                                        no)
+                                                echo "Nothing done"
+                                                break
+                                        ;;
+                                        *)
+                                                print -n  "Are you sure you want to Stop ${l}  (yes/no)?"
+                                        ;;
+                                        esac
+                                done
+	
+	fi
+
+
+done
+echo " "
+rc=0
+for k in ${repo_to_be_repaired}
+do
+         myrep="${k};${DBHOST}:${DBPORT}/${ORACLE_SID};O;${ORACLE_USER};${ORACLE_PASSWORD}"
+	if [[ $2 = "ALL" ]]; then
+		DoRepoAction ${LOGICAL_HOSTNAME} $myrep repRepair ${ADMIN_PASS_REPO}
+		rc=$(echo $rc + $? | bc ) 
+        else
+		print -n  "Are you sure you want to Repair ${i}  (yes/no)?"
+                                while read toto
+                                do
+                                case  $toto in
+                                        yes)
+                                                DoRepoAction ${LOGICAL_HOSTNAME} $myrep repRepair ${ADMIN_PASS_REPO}
+						rc=$(echo $rc + $? | bc ) 
+                                                break
+                                        ;;
+                                        no)
+                                                echo "Nothing done"
+                                                break
+                                        ;;
+                                        *)
+                                                print -n  "Are you sure you want to Repair ${i}  (yes/no)?"
+                                        ;;
+                                        esac
+                                done
+	fi
+
+done		
+return $rc
+else
+echo " DB or MDS is DOWN"	
 fi
 ;;
+backup)
+echo "BACKUP"
+ pathname=$(grep "Archive Dir" /usr/sap/${SID_MDM}/MDS${SYS_NUMBER_MDS}/config/mds.ini | cut -d= -f2 ) 
+repolist=$(GetRepolist ${ORACLE_SID} ${ORACLE_USER} ${ORACLE_PASSWORD})
+rc=0
+for i in  ${repolist}
+do
+   GetRepoStatus ${LOGICAL_HOSTNAME} $i  ${DBHOST} ${DBPORT} ${ORACLE_SID} ${ORACLE_USER} ${ORACLE_PASSWORD} ${ADMIN_PASS_REPO} | while IFS="#" read repo bla status bla2 port
+        do
+		 myrep="${i};${DBHOST}:${DBPORT}/${ORACLE_SID};O;${ORACLE_USER};${ORACLE_PASSWORD}"
+		 filename=$(echo ${pathname}"/"${i}"_"$(date +%y%m%d)".a2a" )
+		if [[ $status = "NOT_MOUNTED" ]]; then
+			echo "o WARNING : I can't do backup on NOT_MOUNTED repo. Please start mount  ${i}"
+			rc=$(echo ${rc} + 2 | bc ) 
+		elif [[ $status = "STARTED RUNNING" ]]; then
+			
+			echo "o WARNING : Doing  backup on STARTED repo, could be not a good idea, but i will try to do it  for ${i} : "
+			DoRepoAction ${LOGICAL_HOSTNAME} $myrep cpyArchive ${filename}
+			rc=$(echo ${rc} + $? | bc ) 
+		else
+			DoRepoAction ${LOGICAL_HOSTNAME} $myrep cpyArchive ${filename}
+			rc=$(echo ${rc} + $? | bc ) 
+		fi	
+	done
+done
+;;
 
-
-
-
+#############################
+########## STATUS ###########
+#############################
 status)
 echo "o STATUS OF DB :"
   status_db ${ORACLE_SID}
@@ -590,8 +728,27 @@ GetRepoStatus ${LOGICAL_HOSTNAME} $i  ${DBHOST} ${DBPORT} ${ORACLE_SID} ${ORACLE
 done
 ;;
 *)
-        echo "usage: $0 {start|stop|status}"
+        echo "usage: $0 action [option1] [option2]"
+	echo " action can be start, stop, status, repair, backup"
+	echo " "
+	echo "#### start ####"
+	echo " if \"$0  start\" without option, it will ask you confirmation before starting/mounting each repository."
+	echo " if \"$0 start ALL\", it will start everything without asking confirmation."
+	echo " if \"$0 start ALL MOUNT\", it will start everything and just mount repositories (no start on them)."			 
+	echo " "
+	echo "#### stop ####"
+	echo " if \"$0  stop\" without option, it will ask you confirmation before stopping/unmounting each repository."
+	echo " if \"$0 stop ALL\", it will stop everything without asking confirmation."
+	echo " if \"$0 stop ALL MOUNT\", it will just stop repositories and let them mounted."			 
+	echo " "
+	echo "#### repair ####"
+	echo " if \"$0  repair\" without option, it will ask you confirmation before checking/repairing each repository."
+	echo " if \"$0 repair ALL\", it will check/repair everything without asking confirmation."
+	echo " "
+	echo "#### backup ####"
+	echo " if \"$0 backup\" without option, it will  backup of each repository without confirmation."
 ;;
 esac
 
 ###### END OF MAIN ######
+
