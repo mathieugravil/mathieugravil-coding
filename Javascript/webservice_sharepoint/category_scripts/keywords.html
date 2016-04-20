@@ -1,0 +1,283 @@
+<html>
+  <head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+
+  
+  <link rel="stylesheet" href="../css/jqcloud.min.css">
+  
+  <script type="text/javascript" src="../Scripts/jquery-1.11.2.min.js" ></script>
+  <script type="text/javascript" src="../Scripts/jquery.SPServices-2014.02.min.js" ></script>
+  <script type="text/javascript" src="../Scripts/jquery.dynacloud-5.js" ></script>
+  <script type="text/javascript" src="../Scripts/jquery.wordstats.js"></script>
+<script type="text/javascript" src="../Scripts/jquery.wordstats.fren.js"></script>
+<script type="text/javascript" src="../Scripts/jqcloud.min.js"></script>
+
+  <title>Keywords analyze</title>
+  </head>
+
+  <body >
+
+  
+  
+  <br>
+  We search in field description of tickets following keywords (no case sensitive). If we found them and if delivery month belongs to the definied period,  we count the ticket and its workload :
+  <br>
+  
+  
+  <p id="keywordformhtml" ></p>
+  <p id="table_result"></p>
+
+  
+  <div id="mycloud"></div>
+  
+  <script type="text/javascript">
+// <![CDATA[
+//$.dynaCloud.auto = true;
+//$.dynaCloud.max = 40;
+//$.dynaCloud.wordStats = false ; 
+//$.merge($.dynacloud.stopwords, [ "SAP", "ORACLE", "Sap","Oracle" ]);
+// ]]>
+</script>
+ <div id="dynacloud"></div>
+    <br>
+  <br>
+   <p id="table_list"></p>
+
+  
+  <script type="text/javascript">
+var   mylistName = "CC1BFE7F-07A5-458E-8163-22A8AEDD6CC9";
+var	myviewName = "A014C29D-C4F5-411E-B9E7-A854A8426BC7";
+var disp_url=" <a href=\"http://portal1.rm.corp.local/dsi/community/urbanistes/Lists/Portfoli_expertise/DispForm.aspx?ID=";
+
+var myGET = getQueryParams(document.location.search);
+var wwords = [
+  {text: "Lorem", weight: 13},
+  {text: "Ipsum", weight: 10.5},
+  {text: "Dolor", weight: 9.4},
+  {text: "Sit", weight: 8},
+  {text: "Amet", weight: 6.2},
+  {text: "Consectetur", weight: 5},
+  {text: "Adipiscing", weight: 5},
+  /* ... */
+];
+
+ $('#mycloud').jQCloud(wwords,{
+  width: 500,
+  height: 350
+});
+//console.log(jQuery.isEmptyObject(myGET));
+
+if (! jQuery.isEmptyObject(myGET))
+{
+var theme_list=myGET['keywords'];
+var fromyyyymmhtml = myGET['fromdate'];
+var fromyyyymm = fromyyyymmhtml.replace('-','');
+var toyyyymmhtml = myGET['todate'] ;
+var toyyyymm = toyyyymmhtml.replace('-','') ;
+
+
+}
+else{
+
+ //$(document).ready(function() {	
+  
+ 
+
+var theme_list='INCIDENT,PROJ,POC,NORME,COINT,SECUR,RCA,AUDIT';
+var fromyyyymmhtml = "2012-01"
+var fromyyyymm = "201201"
+
+var d = new Date();
+var yyyy = d.getFullYear();
+var mm = d.getMonth()+1;
+if(mm<10)
+	{
+var toyyyymmhtml = String(yyyy)+"-0"+String(mm) ;
+var toyyyymm = String(yyyy)+"-0"+String(mm) ;
+	}
+	else
+	{
+var toyyyymmhtml = String(yyyy)+"-"+String(mm) ;	
+var toyyyymm= String(yyyy)+"0"+String(mm) ;	
+	}
+}
+
+var themes = theme_list.split(',');
+
+
+var formhtml="<form id=keywordform action=\"keywords.html\"><table><tr><td>From delivery month :</td><td><Input Name=fromdate type=month id=fromdate value="+fromyyyymmhtml+" /></td><td>To delivery month :</td><td><Input Name=todate type=month  id=todate value="+toyyyymmhtml+" /></td></tr><tr></table><table><td>Keywords list (seperate by coma) :</td><td><Input Name=keywords type=text size=150 id=keywords value="+theme_list+" /></td></tr><tr><td><INPUT id=GO TYPE=SUBMIT VALUE=GO onclick=\"myFunction()\"></td></tr></table></form>";
+
+document.getElementById("keywordformhtml").innerHTML = formhtml;
+Getresult(themes,fromyyyymm,toyyyymm);
+
+	//});
+	
+$( "#keywordform" ).submit(function( event ) {
+var fromdate_ele= document.getElementById('fromdate');
+var fromdat=fromdate_ele.value
+var fromyyyymm=(fromdat.replace("-","")).substring(0,6)
+
+var todate_ele= document.getElementById('todate');
+var todat=todate_ele.value
+var toyyyymm=(todat.replace("-","")).substring(0,6)
+ 
+var keywords_ele =  document.getElementById('keywords');
+var form_themes = (keywords_ele.value).split(',');
+
+//alert( "Handler for .submit() called."+fromyyyymm+' '+toyyyymm+' '+form_themes[0]);
+
+
+if (fromyyyymm && toyyyymm)
+{
+if (fromyyyymm >= toyyyymm)
+{
+alert( fromyyyymm+" is bigger than "+toyyyymm );
+}
+else
+{
+Getresult(themes,fromyyyymm,toyyyymm);
+
+}
+}
+else
+{
+Getresult(themes,"0","999901");
+}
+  event.preventDefault();
+});
+
+
+function myFunction() {
+    document.getElementById("keywordform").submit();
+}
+
+
+function GetTagCloud(startmonth, endmonth){
+var mytable2 = " <div id=\"text\" class=\"dynacloud\"><table border=1><tr><td>ID</td><td>Title</td><td>Description</td> </tr>";
+
+$().SPServices({
+    operation: "GetListItems",
+    async: false,
+	listName: mylistName,
+	viewName: myviewName,
+	completefunc: function (xData, Status) {
+	$(xData.responseXML).SPFilterNode("z:row").each(function() {
+	if(($(this).attr("ows_Deliver_MONTH").split("#")[1].split(".")[0]>=startmonth) && ($(this).attr("ows_Deliver_MONTH").split("#")[1].split(".")[0]<=endmonth))
+		{
+	mytable2+="<tr><td>"+disp_url+$(this).attr("ows_ID")+"\"> "+$(this).attr("ows_ID") +"</a></td><td>"+$(this).attr("ows_LinkTitle")+"</td><td>"+$(this).attr("ows_Description")+"</td></tr>";
+	}
+	});
+			
+	}
+	});
+	mytable2+="</table>  </div>";
+//	console.log(mytable2);
+	document.getElementById("table_list").innerHTML = mytable2 ;
+	document.getElementById("table_list").style.width = '0px';
+}
+
+
+ 
+function Getresult(themes,startmonth, endmonth)
+{ 
+  //console.log(themes);
+ //  GetTagCloud(startmonth, endmonth);
+  var mytable = "<table border=1><tr><td>KEYWORD</td><td>NB</td><td>CHARGE</td><td>TICKETS</td> </tr>";
+ var words = new Array();
+  for (i=0 ; i<themes.length ; i++)
+	{
+	var result = search(mylistName,myviewName,themes[i],startmonth,endmonth);
+//	console.log(result);
+	//console.log(result[0].length);
+	var liste ="";
+	var som = 0 ; 
+	for (j=0; j<result[0].length;j++)
+	{
+		liste+=disp_url+result[0][j]+"\"> "+ result[0][j] +"</a> ";
+		som+=parseFloat(result[1][j]);
+	}
+	
+	mytable+="<tr><td><div class=theme id="+i+">"+themes[i]+"</div></td><td><div class=nb id="+i+">"+result[0].length+"</div></td><td><div class=load id="+i+">"+som+"</div></td><td><div class=tickets id="+i+">"+liste+"</div></td>  </tr>";
+	var word={text:themes[i] , weight:result[0].length};
+	words.push(word);
+	}  
+  mytable+="</table>";
+
+ // console.log(mytable);
+ document.getElementById("table_result").innerHTML = mytable ;
+ console.log(words);
+ $('#mycloud').jQCloud('update',words, {
+  width: 500,
+  height: 350
+});
+//{
+ // autoResize: true,
+//  fontSize: {
+ //   max: 0.1,
+  //  min: 0.02
+  //}
+//});
+ 
+
+ }
+ 
+function getQueryParams(qs) {
+    qs = qs.split("+").join(" ");
+    var params = {},
+        tokens,
+        re = /[?&]?([^=]+)=([^&]*)/g;
+
+    while (tokens = re.exec(qs)) {
+        params[decodeURIComponent(tokens[1])]
+            = decodeURIComponent(tokens[2]);
+    }
+
+    return params;
+}
+
+
+
+function search(liste,myview, VALUE,startmonth,endmonth)
+{
+var myresult = new Array() ;
+var workload =new Array();
+var regvalue = new RegExp(VALUE, "i");
+	//console.log(VALUE);
+$().SPServices({
+    operation: "GetListItems",
+    async: false,
+    listName: liste,
+	viewName: myview,
+
+	completefunc: function (xData, Status) {
+	//console.log(xData.responseText);
+		$(xData.responseXML).SPFilterNode("z:row").each(function() {
+	//	console.log(String($(this).attr("ows_Description")).search(VALUE));
+		if(String($(this).attr("ows_Description")).search(regvalue) > -1 )
+		{
+		if(($(this).attr("ows_Deliver_MONTH").split("#")[1].split(".")[0]>=startmonth) && ($(this).attr("ows_Deliver_MONTH").split("#")[1].split(".")[0]<=endmonth))
+		{
+	//	console.log(String($(this).attr("ows_LinkTitle")));
+		//console.log('on renvoie '+$(this).attr("ows_ID"));
+		myresult.push($(this).attr("ows_ID"));
+		workload.push(parseFloat($(this).attr("ows_CHARGE")));
+		}
+		}
+		
+		});
+			
+	}
+	});
+	//console.log(myresult);
+return [myresult, workload ];	
+}
+
+
+
+
+
+
+ </script>
+ 
+</body>
+</html>

@@ -1,0 +1,6 @@
+1. Now, I stop ORACLE 
+Are you sure you want to stop ORACLE? [yes,no] I execute /opt/ManCluster/DG/SERVICES/CIDB/init.d/ORACLE stop
+Are you sure you want to stop TEX_PRIMARY on urblint111 (yes/no) ?o I will try to stop TEX_PRIMARY
+INFO : TEX_PRIMARY in urblint111 is DOWN 
+
+Status of stop ORACLE: OK

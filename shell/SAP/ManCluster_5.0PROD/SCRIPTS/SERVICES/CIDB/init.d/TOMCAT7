@@ -1,0 +1,90 @@
+#!/bin/ksh
+
+master=/usr/tomcat7/PRD/bin/daemon.sh
+user=ixos
+ljava_home=/usr/java/default
+pid_file=/var/adm/opentext/PRD/tomcat.pid
+get_status()
+{
+if [[ -r $pid_file ]]; then
+    #           nb=$(ps -ef | grep `cat $pid_file`| wc -l)
+#                if [[ $nb = 0 ]];
+                if [ ! -d /proc/$(<$pid_file) ];
+				then
+                        echo "Tomcat is DOWN."
+                        return 1
+                else
+                        echo "Tomcat is UP (pid  `cat $pid_file` exists in /proc)"
+                        return 0
+                fi
+        else
+                echo "$pid_file is not present."
+                echo "Tomcat is normally DOWN."
+                if [[ $(ps -fu $user | wc -l) != 1 ]]; then
+                        echo "Some process from $user are still running."
+                        return 2
+                else
+                        echo "No process from $user are running."
+                        return 1
+                fi
+        fi
+}
+
+if [[ !  -x $master ]]; then
+echo  "$master doesn't exist or is not executable!!"
+exit 5
+fi
+
+
+case $1 in
+        start)
+		get_status >/dev/null
+		if [[ $? = 0 ]] ; then
+			echo "Nothing to do: Tomcat is already running!"
+		else
+			id $user
+			rc=$?
+			if [[ $rc = 0  ]]; then
+				$master --tomcat-user $user --java-home $ljava_home --catalina-pid $pid_file  start
+				get_status>/dev/null
+				if [[ $? = 0 ]]; then
+					echo "TOMCAT7 is started"
+					
+					exit 0
+				else
+					echo "TOMCAT7 is not started !!!!"
+					exit 1
+				fi
+			fi
+		fi
+        ;;
+        stop)
+		get_status >/dev/null
+		if [[ $? = 0 ]] ; then
+			$master --java-home $ljava_home --catalina-pid $pid_file stop
+			exit $?
+		elif [[ $? = 1 ]] ; then
+			echo "Nothing to do : Tomcat7 is already down."
+			exit 0
+		else
+			echo "Some process from $user are still running. I will try to stop tomcat7"
+			$master --java-home $ljava_home --catalina-pid $pid_file stop
+			get_status>/dev/null
+			if [[ $? = 0 ]] ; then
+				echo " TOMCAT7 is stopeed"
+				exit 0
+			else 
+				echo " TOMCAT7 not down!!!"
+				exit 1
+			fi
+		fi
+		;;
+        status)
+         get_status 
+		 exit $?
+        ;;
+        *)
+        echo "Usage: $0 start| stop|status"
+        exit 0
+        ;;
+esac

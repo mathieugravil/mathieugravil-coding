@@ -1,0 +1,33 @@
+#!/bin/ksh
+#set -x
+DIR1=`pwd`
+DIR2=`dirname $0`
+DIR3=`cd $DIR1; cd $DIR2; pwd`
+DIR=`cd $DIR3; pwd`;
+. $DIR/../etc/profile.config
+. $DIR/../../../etc/global.config
+pid_file=/var/run/rsync.pid
+
+while (true)
+        do
+                for dir in ${DIR_TO_BE_SYNC}
+                        do
+echo $(ps -ef | grep -v zrsync | grep rsync| grep ${DIR_TO_BE_SYNC} |  wc -l) >> ${HCLLOG}/SYNC.log
+
+if [[ $(ps -ef | grep -v zrsync | grep rsync| grep ${DIR_TO_BE_SYNC} |  wc -l) < 2 ]]; then
+
+echo "Launch Sync of " ${DIR_TO_BE_SYNC}  >> ${HCLLOG}/SYNC.log
+                        rsync  -e "ssh -i \"${sshkey_master_node}\"" -avz --delete-after --stats --exclude="lost+found" ${dir}/ ${other_host}:${dir}/ >> ${HCLLOG}/SYNC.log &
+                        echo $$ > ${pid_file}
+else
+echo "Sync of " ${DIR_TO_BE_SYNC} ": There is an other process rsync already running"  >> ${HCLLOG}/SYNC.log
+fi
+                        done
+                        sleep ${SYNC_FREQ_SEC}
+                        wc -l ${HCLLOG}/SYNC.log | read lcnt other
+                        if [ $lcnt -gt $nb_lines ] ; then
+                                ((start=$lcnt-799))
+                                tail +$start ${HCLLOG}/SYNC.log > ${HCLLOG}/SYNC.logN
+                                mv ${HCLLOG}/SYNC.logN ${HCLLOG}/SYNC.log
+                        fi
+        done

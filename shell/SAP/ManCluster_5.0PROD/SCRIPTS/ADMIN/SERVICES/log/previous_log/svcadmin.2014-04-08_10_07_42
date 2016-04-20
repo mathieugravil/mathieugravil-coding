@@ -1,0 +1,16 @@
+2. Now, I start ORACLE 
+Are you sure you want to start ORACLE? [yes,no] I execute /opt/ManCluster/DG/SERVICES/CIDB/init.d/ORACLE start
+Are you sure you want to start TEX_PRIMARY on urblint111  (yes/no)?o I will try to start TEX_PRIMARY
+INFO : TEX_PRIMARY in urblint111 is UP 
+o I check if DB are up :
+DB MASTER named TEX_PRIMARY on urblint111 : UP
+DB AUX named TEX_STANDBY on urblint124 : UP
+o I check which DB is primary:
+INFO : the Data Guard broker is not yet available... Try again in 10 seconds.
+WARN: There is some ORA- :  See /opt/ManCluster/DG/SERVICES/CIDB/logs/DGBROKER/configuration_20140408-10-08-15.log
+AUX on urblint124 = Primary database : TEX_STANDBY 
+MASTER on urblint111 = Physical standby database : TEX_PRIMARY 
+TEX_PRIMARY on urblint111 is Physical standby. So do you want to start it on READ-ONLY OR REDO-APPLY OR SWITCH-OVER OR FAIL-OVER (READ-ONLY/REDO-APPLY/SWITCH/FAIL-OVER)?I put TEX_PRIMARY on urblint111 on state APPLY-ON
+WARN: There is some ORA- :  See /opt/ManCluster/DG/SERVICES/CIDB/logs/DGBROKER/apply-on_20140408-10-09-00.log
+
+Status of start ORACLE: KO

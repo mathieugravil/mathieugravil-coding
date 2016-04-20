@@ -1,0 +1,586 @@
+#!/bin/sh
+# Copyright (c) 1995-2005 SAP AG Walldorf, Germany.
+#
+# /etc/init.d/sapinit
+#
+# chkconfig: 345 90 10
+# description: Start sapstartsrv
+#
+
+### BEGIN INIT INFO
+# Provides: sapinit
+# Required-Start: $network $syslog $remote_fs $time
+# X-UnitedLinux-Should-Start:
+# Required-Stop:
+# Default-Start: 3 5
+# Default-Stop: 0 1 2 6
+# Short-Description: Start the sapstartsrv
+# Description: Start the startsapsrv 
+### END INIT INFO
+
+PGM_PATH=$0
+PGMNAME=sapstartsrv
+HOSTEXECNAME=saphostexec
+ARG1=$1
+ARG2=$2
+ARGUMENTS=$*
+USRSAP=/usr/sap
+SAPSERVICE_PATH=${USRSAP}/sapservices
+SAPHOSTCTRL_PATH=${USRSAP}/hostctrl/exe
+HOSTEXEC_PATH=${SAPHOSTCTRL_PATH}/${HOSTEXECNAME}
+HOSTEXEC_PROFILE_PATH=${SAPHOSTCTRL_PATH}/host_profile
+
+# global defined array:
+#
+# g_commands
+# g_pid
+
+#
+# Default implementation for OS depends functions!
+#
+PS_CMD=default_get_process_list
+PS_ARGS=default_get_process_args
+SEQ_CMD=seq
+GREP_CMD=grep
+FD_LIMIT_CMD='ulimit -n'
+STACK_LIMIT_CMD='ulimit -s'
+DATA_LIMIT_CMD='ulimit -d'
+
+#
+# . ${SAPSERVICE_PATH}
+#
+TRACE="0"
+
+#
+# Return values set for Linux
+# see set_platform for platform specific values!
+#
+EXIT_running=0
+EXIT_stopped=3
+EXIT_unsupported_shell=-1
+
+ERR_ok=0
+ERR_no_sapservice=1
+ERR_no_process_running=3
+ERR_unsupported_shell=4
+ERR_stopped=99
+
+PATH=/sbin:/usr/sbin:/usr/bin:/bin:$PATH
+
+#
+# exit function
+#
+do_exit() {
+	exit_code=$1
+	case ${exit_code} in
+		${ERR_no_sapservice} )
+			echo  "File ${SAPSERVICE_PATH} not found."
+			exit_code=${EXIT_stopped}
+		;; 
+		${ERR_no_process_running} )
+			echo  "No process running."
+			exit_code=${EXIT_stopped}
+		;;
+		${ERR_stopped} )
+			echo  "No process running"
+			exit_code=${EXIT_stopped}
+		;;
+		${ERR_unsupported_shell} )
+			echo "Sorry, this script does not run without /usr/xpg4/bin/sh"
+			exit_code=${EXIT_unsupported_shell}
+		;;
+		${ERR_ok} )
+			echo  "running"
+			exit_code=${EXIT_running}
+		;;
+		* )
+			exit_code=${EXIT_stopped}
+		;;
+	esac;
+	exit ${exit_code}
+}
+
+#############################################################
+#
+# trace 
+#
+trace() {
+	trace_msg=$1
+	if [ "${TRACE}" = "1" ]; then
+		echo  "${trace_msg}"
+	fi 
+	unset trace_msg
+}
+
+################################################################
+#
+# AIX get process list
+#
+aix_get_process_list() {
+        pl=`ps -e -opid,comm | awk "/ ${PGMNAME}"'/{print $1;}'`
+        echo "${pl}"
+        unset pl
+}
+
+################################################################
+#
+# HP-UX get process list
+#
+hp_get_process_list() {
+        pl=`ps -ef | awk "/${PGMNAME}"'/{if ($3 == 1) print $2;}'`
+        echo "${pl}"
+        unset pl
+}
+
+################################################################
+#
+# z/OS get process list
+#
+zos_get_process_list() {
+        pl=`ps -e -opid,comm | awk "/${PGMNAME}"'/{print $1;}'`
+        echo "${pl}"
+        unset pl
+}
+
+#################################################################
+#
+# Sun get process list: Adapted to zone implementation.
+#
+sunos_get_process_list() {
+	zn=""
+	if [ -x /usr/bin/zonename ]; then
+		zn=`/usr/bin/zonename`
+	elif [ -x /sbin/zonename ]; then
+		zn=`/sbin/zonename`
+	fi
+	if [ -n "${zn}" ]; then
+		zsched=`pgrep -z ${zn} zsched`
+		if [ -n "${zsched}" ]; then
+			pl=`pgrep -P ${zsched} -z ${zn} ${PGMNAME}`
+		else
+			pl=`pgrep -P 1 -z ${zn} ${PGMNAME}`
+		fi
+		unset zsched
+	else
+		pl=`pgrep -P 1 ${PGMNAME}`
+	fi
+        echo "${pl}"
+        unset pl
+	unset zn
+}
+
+##################################################################
+#
+# Sun get process argsuments
+#
+sunos_get_process_args() {
+	pa=`pargs ${1} 2> /dev/null | grep "argv.*sapstartsrv" | awk '{print $2}'`
+	pa="$pa `pargs ${1} 2> /dev/null | grep "argv.*pf=" | awk '{print $2}'`"
+        echo  "${pa}"
+        unset pa
+}
+
+#################################################################
+#
+# General get process list
+#
+default_get_process_list() {
+        pl=`pgrep -P 1 ${PGMNAME}`
+        echo "${pl}"
+        unset pl
+}
+
+##################################################################
+#
+# General get process args
+#
+default_get_process_args() {
+        pa=`ps -p ${1} -o args | tail +2`
+        echo  "${pa}"
+        unset pa
+}
+
+##################################################################
+#
+# General get process args
+#
+linux_get_process_args() {
+	pa=`ps -p ${1} -o args | tail -n +2`
+	echo "${pa}"
+	unset pa
+}
+
+#################################################################
+#
+# HP-UX get process args
+#
+hp_get_process_args() {
+        pa=`UNIX95=1 ps -p ${1} -o args | tail +2 | awk '{print $1}'`
+#        pa=`ps -p ${1} -f | tail +2 | awk '{print $9}'`
+        echo  "${pa}"
+        unset pa
+}
+
+#
+# We need seq, because otherwise status won't work correctly because
+# of blank in the command line. 
+#
+my_seq() {
+	start=$1
+	end=$2
+	((a=0))
+	while (( a <= $end ))
+	do
+        	echo "$a "
+        	((a+=1))
+	done
+	unset a
+	unset start
+	unset end
+}
+
+#############################################################
+#
+# set_platform
+#
+set_platform() {
+	PLATFORM=`uname`
+	case ${PLATFORM} in
+		AIX*|BOS*)
+		PS_CMD=aix_get_process_list
+                SEQ_CMD=my_seq
+		;;
+		HP*)
+		# The default value of EXIT_stopped=3 will automatically reboot 
+		# the machine!
+		EXIT_stopped=1
+		PS_CMD=hp_get_process_list
+		PS_ARGS=hp_get_process_args
+		SEQ_CMD=my_seq
+                if [ -z "$changed_shell" ]; then
+                        if  [ -x /usr/bin/sh ]; then
+                                changed_shell=1; export changed_shell;
+                                exec /usr/bin/sh $0 $ARGUMENTS
+                        else
+                                trace "Sorry, this script does not run without /usr/bin/sh"
+                                do_exit ${ERR_unsupported_shell}
+                        fi
+                fi
+		;;
+		OS\/390*)
+		export _BPXK_AUTOCVT=ON
+                PS_CMD=zos_get_process_list
+		;;
+		OSF*)
+# not supported by 700
+		;;
+		Sun*)
+		#
+		# Change to a UNIX95 compatible shell
+		# 	  
+		PS_CMD=sunos_get_process_list
+		PS_ARGS=sunos_get_process_args
+                GREP_CMD=/usr/xpg4/bin/grep
+                SEQ_CMD=my_seq
+		if [ -z "$changed_shell" ]; then
+                        if  [ -x /usr/xpg4/bin/sh ]; then
+                                changed_shell=1; export changed_shell;
+                                exec /usr/xpg4/bin/sh $0 $ARGUMENTS
+                        else
+                                trace "Sorry, this script does not run without /usr/xpg4/bin/sh"
+                                do_exit ${ERR_unsupported_shell}
+                        fi
+                fi		
+		# PS_CMD=get_process_list
+		;;
+		SIN*|Reliant*)
+# not supported by 700
+		;;
+		ULT*)
+# not supported by 700
+		;;
+		dmux*)
+# not supported by 700
+		;;
+		Linux*)
+		PS_ARGS=linux_get_process_args
+		# 
+		;;
+		*)
+		PLATFORM="Unknown"
+# Unknown platform !
+		;;
+	esac;
+	trace "Platform is: ${PLATFORM}"
+}
+
+#
+# Setup value of limits set in /usr/sap/sapservices
+#
+setup_limit() {
+	if [ -r "${SAPSERVICE_PATH}" ]; then
+		fdlimitsvalue=65536
+		xx=`grep "^limit.descriptors" ${SAPSERVICE_PATH} | sed -e "s/limit.descriptors=//" `
+		if [ -n "${xx}" ]; then
+			fdlimitsvalue=${xx}
+		fi
+		trace "execute ${FD_LIMIT_CMD} ${fdlimitsvalue}"
+		eval ${FD_LIMIT_CMD} ${fdlimitsvalue}
+		unset xx
+		unset fdlimitsvalue
+
+		stacksize=`grep "^limit.stacksize" ${SAPSERVICE_PATH} | sed -e "s/limit.stacksize=//" `
+		if [ -n "${stacksize}" ]; then
+			trace "execute ${STACK_LIMIT_CMD} ${stacksize}"
+			eval ${STACK_LIMIT_CMD} ${stacksize}
+		fi
+		unset stacksize
+
+		datasize=`grep "^limit.datasize" ${SAPSERVICE_PATH} | sed -e "s/limit.datasize=//" `
+		if [ -n "${datasize}" ]; then
+			trace "execute ${DATA_LIMIT_CMD} ${datasize}"
+			eval ${DATA_LIMIT_CMD} ${datasize}
+		fi
+		unset datasize
+	fi
+}
+
+#
+# read the content of /usr/sap/sapservices
+#  only the line containing startsapsrv are considered 
+#  the line readed are stored in the array g_commands[]
+#
+read_sapservices() {
+	if [ ! -r "${SAPSERVICE_PATH}" ]; then
+		do_exit ${ERR_no_sapservice}
+	fi
+
+#       '/usr/sap/[[:alnum:]]{3}/.*sapstartsrv *pf\=.*|-u *[[:alnum:]]{6}|-D *pf\=.*|-u *[[:alnum:]]{6}|-D *pf\=.*|-u *[[:alnum:]]{6}|-D'
+
+#	subexp="pf\=.*\|-u *\w\{6\}\|-D"
+#	expression="/usr/sap/\w\{3\}/.*sapstartsrv *${subexp} *${subexp} *${subexp}"
+
+	subexp="pf\=.*|-u *[[:alnum:]]{6}|-D"
+	expression="/usr/sap/[[:alnum:]]{3}/.*sapstartsrv *${subexp} *${subexp} *${subexp}"
+
+	lines=`cat ${SAPSERVICE_PATH} | wc -l`
+
+	((l=0));((i=1))
+	while ((i <= ${lines}))
+	do
+		pre_l=`head -${i} ${SAPSERVICE_PATH} | tail -1 | ${GREP_CMD} -E "${expression}"`
+		if [ -n "${pre_l}" ]; then
+			g_commands[${l}]=${pre_l}
+			trace "Found (${l}): ${g_commands[${l}]}"
+			((l+=1))
+		fi
+		((i+=1))
+	done
+
+	unset subexp
+	unset expression
+	unset pre_l 
+	unset lines 
+	unset i
+}
+
+#
+# get , using the command ps, the list of the running instances of sapstartsrv
+#      this list are stored in the array g_pid[]
+#
+get_process_list() {
+
+	typeset -i count=0
+	process_list=`${PS_CMD}`
+	if [ -n "${process_list}" ]; then 
+		count=0
+		for tmp_pid in ${process_list}
+		do
+			if [ "x${tmp_pid}" !=  "x" -a ${tmp_pid} -gt 0 ]; then
+				let "count = ${count} + 1"
+				g_pid[${count}]=${tmp_pid};
+			fi
+		done
+	else
+		return ${ERR_no_process_running}
+	fi
+	unset process_list
+	unset count
+	unset tmp_pid
+}
+
+#
+# Wait for a defined process ID.
+#
+waitfor() {
+    pid=$1
+    dummy=`kill -0 ${pid} 2>&1`
+    while [ $? -eq 0 ]
+    do
+      sleep 1
+      dummy=`kill -0 ${pid} 2>&1` 
+    done
+}
+
+#
+# Implements the start
+#
+start() {
+	setup_limit
+
+	current_dir=`pwd`
+	if [ -x "${HOSTEXEC_PATH}" ]; then
+		${HOSTEXEC_PATH} pf=${HOSTEXEC_PROFILE_PATH}
+	fi
+
+	read_sapservices
+
+	for index in `${SEQ_CMD} 0 $((${#g_commands[@]} - 1))`
+	do
+	    vv=`sh -c "${g_commands[index]}"`
+	    if [ -n "$vv" ]; then
+		echo "failed to start ${g_commands[index]}: $vv"
+	    fi
+	done
+
+	cd ${current_dir}
+	unset vv
+	unset index
+	unset current_dir
+}
+
+#
+# Implements the stop. 
+#   Called sstop because on AIX stop is already used.
+#
+sstop() {
+	if [ -x "${HOSTEXEC_PATH}" ]; then
+		${HOSTEXEC_PATH} -stop
+	fi
+
+	get_process_list
+	let "proc_num = ${#g_pid[@]}"
+	if [ ${proc_num} -ne 0 ]; then
+	    # kill -SIGINT ${g_pid[*]}
+		for i in ${g_pid[*]}
+		do
+			trace "kill SIGINT ${i}"
+			kill -2 ${i}
+			trace "waitfor that ${i} terminate"
+			waitfor ${i}
+		done
+	else
+		trace "${proc_num} is zero ..."
+	fi
+	unset i
+	unset proc_num
+}
+
+#
+# Implements the status
+#
+status() {
+	if [ -x "${HOSTEXEC_PATH}" ]; then
+		${HOSTEXEC_PATH} -status
+	fi
+
+	read_sapservices
+	get_process_list
+	if [ $? -eq ${ERR_no_process_running} ]; then 
+		do_exit ${ERR_no_process_running}
+	fi
+
+	((ii=0))
+	for i in `${SEQ_CMD} 0 $((${#g_commands[@]} - 1))`
+	do
+	    vv=`echo "${g_commands[i]}" | awk 'BEGIN {FS = ";"} {for (ll = 1; ll <= NF; ll++) { if (index($ll,"sapstartsrv") > 0) print  $ll }}'`
+	    if [ -n "$vv" ]; then
+		l_commands[ii]=$vv;
+		((ii+=1))
+	    fi
+	done
+
+        # l_commands=${g_commands}
+	let "proc_num = ${#g_pid[@]}"
+	if [ ${proc_num} -ne 0 ]; then
+		for i in ${g_pid[*]}
+		do
+			cmd=`${PS_ARGS} ${i}`
+                        if [ -n "${cmd}" ]; then
+				((jj=0))
+				for j in `${SEQ_CMD} 0 $((${#l_commands[@]} -1))`
+				do
+					res=`echo  "${l_commands[${j}]}" | grep "${cmd}"`
+					if [ -n "${res}" ]; then
+						l_commands[${jj}]="<ok>";
+					fi
+					((jj+=1))
+				done
+			fi
+			trace "Process ${cmd} running as with pid: $i"
+		done
+		partially=0	
+		for j in `${SEQ_CMD} 0 $((${#l_commands[@]} - 1))`
+		do
+			trace "${l_commands[${j}]}"
+			if [ "${l_commands[${j}]}" != "<ok>" ]; then
+				partially=1
+		#		break;
+			fi
+		done
+		if [ ${partially} -gt 0 ]; then
+			# Open for comment ...............
+			trace "Partially running ...... ?"
+		else
+			echo "pid's (${g_pid[*]})"
+			do_exit ${ERR_ok}
+		fi
+	else
+		do_exit ${ERR_stopped}
+	fi
+	unset l_commands 
+	unset i 
+	unset ii 
+	unset j 
+	unset jj
+}
+
+##############################################################
+# Main 
+#
+#
+set_platform
+
+if [ "${ARG2}" = "trace" ]; then
+	TRACE="1"
+fi
+case "${ARG1}" in
+	start )
+		start 
+	;;
+	stop )
+		sstop 
+	;;
+	status )
+		status 
+	;;
+	restart )
+		sstop  
+		start  
+	;;
+## A speciality of HP-UX ...
+	start_msg )
+		echo "Starting SAP Services "
+		exit 0
+	;;
+	stop_msg )
+		echo "Stopping SAP Services "
+		exit 0
+	;;
+## HP-UX end
+	* )
+		echo "Usage: ${PGM_PATH} {start|stop|status|restart}" 
+		do_exit
+	;;
+esac;
+

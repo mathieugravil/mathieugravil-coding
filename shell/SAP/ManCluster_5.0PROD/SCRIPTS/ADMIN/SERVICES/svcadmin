@@ -1,0 +1,59 @@
+#!/bin/ksh -p
+# -------------------------------------------------------------------------
+# AUTEUR: Ahmed Younsi                                                    -
+# CREATION DATE : 03/08/2013                                              -
+# MODIFIED BY:                                                            -
+# MODIFIED ON:                                                            -
+# COMMENTS:                                                               -
+# -------------------------------------------------------------------------
+
+########################## LOADING CONFIG FILE ################################
+DIR1=`pwd`
+DIR2=`dirname $0`
+DIR3=`cd $DIR1; cd $DIR2; pwd`
+DIR=`cd $DIR3; pwd`;
+. $DIR/../../SERVICES/CIDB/etc/profile.config
+. $DIR/../../etc/global.config
+
+
+#config_file=$SERVICE_CONF_DIR/service.config
+#. $config_file
+
+
+SCRIPT_NAME=$( basename $0 )
+LOG_BASENAME=$SCRIPT_NAME
+TODAY=$( $DATE '+%Y-%m-%d:%H:%M:%S' )
+
+LAST_GEN_LOGNAME=$SERVICE_LOGDIR/$LOG_BASENAME.lastlog
+CURRENT_LOGFILE=$PREV_SERVICE_LOGDIR/$LOG_BASENAME.$TODAY
+
+SVCADMIN=$DIR/svcadmin.ksh
+
+
+################################## FUNCTIONS ################################
+########## clean_log ########
+cleaning() {
+ if [[ -f $CURRENT_LOGFILE ]]; then
+      $RM $LAST_GEN_LOGNAME 2> /dev/null
+      $LN -s $CURRENT_LOGFILE $LAST_GEN_LOGNAME
+ fi
+
+ n=$( $LS -1 $PREV_SERVICE_LOGDIR 2>/dev/null | $WC -l )
+ n=$(( n + 0 ))
+ if [[ ! -z $MAX_LOGS ]] && [[ $n -gt $MAX_LOGS ]]; then
+    nbrm=$(( $n - $MAX_LOGS )) 
+    list_rm=$( $LS -1r $PREV_SERVICE_LOGDIR/$LOG_BASENAME.* | $TAIL -$nbrm )
+    list_rm=$($ECHO $list_rm)
+    #$ECHO "Remove $nbrm files"
+    #$ECHO "Remove list: $list_rm"
+    $RM $list_rm 2> /dev/null
+ fi
+}
+
+trap 'cleaning' 0
+
+if [[ $1 = "start" ]] || [[ $1 = stop ]]; then
+   $SVCADMIN "$@" | $TEE -a $CURRENT_LOGFILE
+else
+   $SVCADMIN "$@" 
+fi

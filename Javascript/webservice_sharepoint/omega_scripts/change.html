@@ -1,0 +1,98 @@
+<html>
+  <head>
+  <script src="../Scripts/jquery-1.11.2.min.js" language="javascript" type="text/javascript"></script>
+  <script src="../Scripts/jquery.SPServices-2014.02.min.js" language="javascript" type="text/javascript"></script>
+       <title>Changement Ticket Sharepoint </title>
+  </head>
+
+  <body >
+ <div id="mylog">
+</div>
+<a id=sh_tk href="">Sharepoint ticket</a>
+
+
+  <script type="text/javascript">
+ 
+function getQueryParams(qs) {
+    qs = qs.split("+").join(" ");
+    var params = {},
+        tokens,
+        re = /[?&]?([^=]+)=([^&]*)/g;
+
+    while (tokens = re.exec(qs)) {
+        params[decodeURIComponent(tokens[1])]
+            = decodeURIComponent(tokens[2]);
+    }
+
+    return params;
+}
+
+function Get_sharepoint_id(liste,view,omega_nb)
+{
+var myresult = "NONE" ;
+var all_omega_tickets = "";
+$().SPServices({
+    operation: "GetListItems",
+    async: false,
+    listName: "CC1BFE7F-07A5-458E-8163-22A8AEDD6CC9",
+	viewName: "A014C29D-C4F5-411E-B9E7-A854A8426BC7",
+	completefunc: function (xData, Status) {
+	//console.log(xData.responseText);
+		$(xData.responseXML).SPFilterNode("z:row").each(function() {
+		
+		if(String($(this).attr("ows_OMEGA_TICKET")).indexOf(omega_nb) > -1 )
+		{
+		console.log(String($(this).attr("ows_OMEGA_TICKET")).indexOf(omega_nb))
+		console.log('on renvoie '+$(this).attr("ows_ID")+' omega = '+String($(this).attr("ows_OMEGA_TICKET")))
+		myresult=$(this).attr("ows_ID");
+		all_omega_tickets=String($(this).attr("ows_OMEGA_TICKET"));
+		}
+		});
+			
+	}
+	});
+return [myresult, all_omega_tickets];	
+}
+
+function Update_sharepoint_ticket_field(liste, ID, FIELDNAME, VALUE)
+{
+//console.log(liste +" " + ID +" "+FIELDNAME + " "+VALUE);
+$().SPServices({
+	operation: "UpdateListItems",
+	listName: liste,
+	ID: ID,
+	valuepairs: [[FIELDNAME, VALUE]],
+	completefunc: function (xData, Status) {
+			//alert(Status);
+			 document.all["mylog"].innerHTML = "Update of Sharepoint item : "+Status ;
+	}
+});
+}
+
+
+var myGET = getQueryParams(document.location.search);
+var nb=myGET['ticket_nb']
+console.log(nb);
+var   mylistName = "CC1BFE7F-07A5-458E-8163-22A8AEDD6CC9";
+var	myviewName = "8B56F44D%2DF9C0%2D45ED%2DB0DA%2D1174386B8CB8";
+var result = Get_sharepoint_id(mylistName,myviewName,nb)
+var sharepoint_id = result[0]
+console.log(String(result[1]).indexOf(nb))
+console.log(String(result[1]).length)
+console.log(nb.length)
+if ( String(result[1]).indexOf(nb) +nb.length ==  String(result[1]).length) // si c'est le dernier ticket, on clot
+{
+Update_sharepoint_ticket_field(mylistName, result[0], "STATUS","CLOSED");
+}
+else
+{
+//alert('Nothing to do: It is not the lastest ticket'+result[1]);
+document.all["mylog"].innerHTML ="Nothing to do: It is not the lastest ticket "+result[1]
+// $(#mylog).html("").append("Nothing to do: It is not the lastest ticket "+result[1])
+}
+sh_tk_url ='http://portal1.rm.corp.local/dsi/community/urbanistes/Lists/Portfoli_expertise/DispForm.aspx?ID='+result[0]
+document.getElementById('sh_tk').href=sh_tk_url
+ </script>
+ 
+</body>
+</html>

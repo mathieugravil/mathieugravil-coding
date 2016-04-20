@@ -1,0 +1,91 @@
+#!/bin/ksh
+# -------------------------------------------------------------------------
+# AUTEUR: Ahmed Younsi                                                    -
+# DATE CREATION:                                                          -
+# MODIFIE LE:                                                             -
+# MODIFIE PAR:                                                            -
+# COMMENTAIRES:                                                           -
+# -------------------------------------------------------------------------
+action=$1
+
+########################## LOADING CONFIG FILE ################################
+DIR1=`pwd`
+DIR2=`dirname $0`
+DIR3=`cd $DIR1; cd $DIR2; pwd`
+DIR=`cd $DIR3; pwd`;
+
+config_file=$DIR/../etc/profile.config
+. $config_file
+
+global_file=$DIR/../../../etc/global.config
+. $global_file
+
+########################## FUNCTIONS ################################
+check_vg() {
+   for vg in $VG_LIST; do
+       $LSVG $vg > /dev/null 2>&1
+       if [[ $? -eq 0 ]]; then
+          exit 1
+       fi
+   done
+
+   exit 0
+}
+
+list_resources() {
+    if [[ ! -d $RC3DIR ]]; then
+        $ECHO "Startup application directory $RC3DIR not found"
+        exit 1
+    fi
+
+    for startsc in $RC3DIR/S[0-9][0-9]*; do
+        name=$( $ECHO $startsc | $SED "s:^$RC3DIR/S[0-9][0-9]*::")
+        $ECHO "O $name"
+    done
+    exit 0
+}
+
+executeScriptAppli() {
+    if [[ ! -d $RCDIR ]]; then
+        $ECHO "Startup application directory $RCDIR not found"
+        exit 1
+    fi
+
+    starttime=$( perl -e 'print time' )
+    for startsc in $RCDIR/${prefix}[0-9][0-9]*; do
+        prevt=$( perl -e 'print time' )
+        script_name=$( $ECHO $startsc | $SED "s:^$RCDIR/::")
+        name=$( $ECHO $startsc | $SED "s:^$RCDIR/$prefix[0-9][0-9]*::")
+        $ECHO "================================================================="
+        $ECHO "O Run Application $name (script $script_name)"
+        $ECHO "================================================================="
+        ksh $startsc $action $force
+        if [[ $? -ne 0 ]] && [[ $action != status ]]; then
+            exit 1
+        fi
+        $ECHO
+    done
+}
+
+if [[ -z $1 ]]; then
+   $ECHO "An action must specified: start, stop or status"
+   exit 1
+fi
+force=$2
+
+case $1 in
+    'start') prefix=S; action=start; RCDIR=$RC3DIR ;;
+    'stop') prefix=K; action=stop; RCDIR=$RC0DIR ;;
+    'status') prefix=S; action=status; RCDIR=$RC3DIR  ;;
+    'check') check_vg ;;
+    'list') list_resources ;;
+    '*') $ECHO "action must be start, stop or status"
+        exit 1
+        ;;
+esac
+
+executeScriptAppli
+t=$( $PERL -e 'print time' )
+duration=$(( $t-$starttime ))
+$ECHO "O Total Duration: $duration s"
+exit 0

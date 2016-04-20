@@ -1,0 +1,101 @@
+#!/bin/ksh
+
+#------------------------------------------------
+# ----- Initialisation des variables utiles -----
+#------------------------------------------------
+DIR1=`pwd`
+DIR2=`dirname $0`
+DIR3=`cd $DIR1; cd $DIR2; pwd`
+DIR=`cd $DIR3; pwd`;
+. $DIR/../etc/profile.config
+. $DIR/../../../etc/global.config
+
+rval=0
+
+
+instance=`echo $INSTANCE | tr -s '[:upper:]' '[:lower:]'`
+
+if  [[ $ASM = 'Y' ]]; then
+orauser="oracle"
+else
+orauser=ora$instance
+fi
+
+LISTENER_NAME=LISTENER${INSTANCE}
+PRODUIT=${LISTENER_NAME}
+
+case "$1" in
+'status')
+	echo "  o Status of $PRODUIT :"| ${TEE} -a $logfile
+		if  [[ $ASM = 'Y' ]]; then
+			su - ${orauser} -c "oe $INSTANCE; lsnrctl status $LISTENER_NAME">/dev/null 
+		else
+			su - ${orauser} -c "lsnrctl status $LISTENER_NAME">/dev/null 
+		fi
+        if [[ $? == 0 ]] ; then
+		echo "  o $PRODUIT: OK"| ${TEE} -a $logfile
+		echo "  o Status: 0"| ${TEE} -a $logfile
+	else
+		echo "  o $PRODUIT: NOK"| ${TEE} -a $logfile
+		echo "  o Status: 1"| ${TEE} -a $logfile
+	fi
+
+;;
+'start')
+        echo "O Starting $PRODUIT..."| ${TEE} -a $logfile
+if  [[ $ASM = 'Y' ]]; then
+			su - ${orauser} -c "oe $INSTANCE; lsnrctl status $LISTENER_NAME">/dev/null 
+		else
+			su - ${orauser} -c "lsnrctl status $LISTENER_NAME">/dev/null 
+		fi
+if [[ $? == 0 ]] ; then
+echo "  o Starting of $PRODUIT: OK (already started)"| ${TEE} -a $logfile
+else
+			# -- Lancement de la commande de demarrage
+			if  [[ $ASM = 'Y' ]]; then
+				su - ${orauser} -c "oe $INSTANCE; lsnrctl start $LISTENER_NAME">/dev/null 
+		else
+			su - ${orauser} -c "lsnrctl start $LISTENER_NAME">/dev/null 
+		fi
+			if [ $? -ne 0 ]; then
+				echo "  o Starting of $PRODUIT: NOK"| ${TEE} -a $logfile
+				exit 1
+			fi
+			echo "  o Starting of $PRODUIT: OK"| ${TEE} -a $logfile
+			exit 0
+fi
+;;
+
+# ---------------------------------------
+# ----- Gestion et Arret du produit -----
+# ---------------------------------------
+
+'stop')
+        echo "O Stopping $PRODUIT..."| ${TEE} -a $logfile
+                CMD1="$PS -ef | $GREP \"tnslsnr ${LISTENER_NAME}\" | $GREP -v grep | $WC -l"
+                lines=`eval $CMD1`
+                if [ $lines -eq 0 ] ; then
+                        echo "  o Stopping of $PRODUIT:OK (already stopped)"| ${TEE} -a $logfile
+                else
+		       		if  [[ $ASM = 'Y' ]]; then
+						su - ${orauser} -c "oe $INSTANCE; lsnrctl stop $LISTENER_NAME">/dev/null 
+					else
+						su - ${orauser} -c "lsnrctl stop $LISTENER_NAME">/dev/null 
+					fi
+
+			if [ $? -ne 0 ]; then
+                                echo "  o Stopping of $PRODUIT: NOK"| ${TEE} -a $logfile
+                                exit 1
+                        fi
+			echo "  o Stopping of $PRODUIT: OK"| ${TEE} -a $logfile
+			exit 0
+fi
+;;
+
+*)
+	echo "usage: $0 {start|stop}"
+exit 1
+	;;
+esac
+
+exit $rval

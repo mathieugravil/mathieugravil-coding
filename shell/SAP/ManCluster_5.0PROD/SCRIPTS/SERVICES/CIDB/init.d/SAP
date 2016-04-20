@@ -1,0 +1,130 @@
+#!/bin/ksh
+#set -x
+#. /opt/ManCluster/DG/CIDB/etc/profile.config
+#. /opt/ManCluster/DG/etc/global.config
+
+DIR1=`pwd`
+DIR2=`dirname $0`
+DIR3=`cd $DIR1; cd $DIR2; pwd`
+DIR=`cd $DIR3; pwd`;
+. $DIR/../etc/profile.config
+. $DIR/../../../etc/global.config
+
+
+
+PRODUIT=SAP${INSTANCE}
+
+instance=`echo $INSTANCE | tr -s '[:upper:]' '[:lower:]'`
+sapuser=${instance}adm
+logdate=$(date +"%Y%m%d-%H-%M-%S")
+name=$(basename ${0})
+logfile=`echo ${HCLLOG}"/"${name}"_"${1}"_"${2}"_"${3}"_"${logdate}.log`
+
+
+        if [ `ps -ef | grep "ms.sap${INSTANCE}" |grep -v grep | wc -l`  -eq 1  ] ; then
+		status=0
+	else
+		status=1
+	fi
+
+
+
+case "$1" in
+'status')
+        if [ $status -eq 0 ] ; then
+		echo "  o $PRODUIT: OK"| ${TEE} -a $logfile
+		echo "  o Status: 0"| ${TEE} -a $logfile
+	else
+		echo "  o $PRODUIT: NOK"| ${TEE} -a $logfile
+		echo "  o Status: $status"| ${TEE} -a $logfile
+		status=1
+	fi
+;;
+'start')
+        echo "O Starting $PRODUIT"| ${TEE} -a $logfile
+        su - ${sapuser} -c "startsap -t r3  >>/dev/null"
+        rc=$?
+if [[ $rc -ne 0 ]]
+then
+                echo "  o $PRODUIT: Starting KO"| ${TEE} -a $logfile
+                echo "  o Status: 1"| ${TEE} -a $logfile
+		exit 1
+
+else
+echo "  o $PRODUIT: Starting CI OK"| ${TEE} -a $logfile
+                    # Start AS Linux
+                        for  AS in $LIST_AS; do
+                                $ECHO "  o Starting AS $AS: \c"| ${TEE} -a $logfile
+                                /bin/ping -c 3 $AS  >/dev/null
+                                if [ $? -ne 0 ]; then
+                                        echo " NOK (cannot be reached)"| ${TEE} -a $logfile
+                                else
+                                      echo "Start of ${INSTANCE} on $AS " | ${TEE} -a $logfile
+                                      ssh $AS -n " su - ${sapuser} -c \" startsap -t r3\" > /dev/null 2>&1 < /dev/null"| ${TEE} -a $logfile
+                                        if [ $? -eq 0 ]; then
+                                                echo OK| ${TEE} -a $logfile
+                                        else
+                                                echo NOK| ${TEE} -a $logfile
+                                        fi
+                                        sleep 10
+                                fi
+                        done
+
+fi
+
+
+
+;;
+
+
+'stop')
+        echo "O Stopping $PRODUIT"| ${TEE} -a $logfile
+ ##Stop AS Linux
+                        for  AS in $LIST_AS; do
+                                $ECHO "  o Stopping AS $AS: \c"| ${TEE} -a $logfile
+                                /bin/ping -c 3 $AS   >/dev/null
+                                if [ $? -ne 0 ]; then
+                                        echo " NOK (cannot be reached)"| ${TEE} -a $logfile
+                                else
+                                      echo "Stop of ${INSTANCE} on $AS "| ${TEE} -a $logfile
+									  SN=$(ssh $AS -n "ps -fu ${sapuser} | grep sapstartsrv | cut -d_ -f2 | cut -c 2-")
+                                      ssh $AS -n "su - ${sapuser} -c \" stopsap -t r3 \" > /dev/null 2>&1 < /dev/null"
+									  
+                                        if [ $? -eq 0 ]; then
+                                                echo OK| ${TEE} -a $logfile
+                                        else
+                                                echo NOK| ${TEE} -a $logfile
+                                        fi
+										ssh $AS -n "su - ${sapuser} -c \"sapcontrol -nr ${SN} -function StopService\"> /dev/null 2>&1 < /dev/null"
+										if [ $? -eq 0 ]; then
+                                                echo OK| ${TEE} -a $logfile
+                                        else
+                                                echo NOK| ${TEE} -a $logfile
+                                        fi
+                                        sleep 10
+                                fi
+                        done
+
+
+        su - ${sapuser} -c "stopsap -t r3  >>/dev/null"
+        rc=$?
+
+if [[ $rc -ne 0 ]]
+then
+                echo "  o $PRODUIT: Stopping KO"| ${TEE} -a $logfile
+                exit 1
+
+else
+                echo "  o $PRODUIT: Stopping CI OK"| ${TEE} -a $logfile
+                    #
+
+fi
+
+;;
+
+*)
+	echo "usage: $0 {start|stop|status}"
+	;;
+esac
+
+exit $rval
