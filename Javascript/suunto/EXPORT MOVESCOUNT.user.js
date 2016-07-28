@@ -148,7 +148,7 @@ if (speedAvg === 0){
 
 var sportid=convert_activityID(suunto.move.moveData.activityID);
 if (( dist === 0 ) && ( sportid === 3 )){
-    speedMax = prompt("Please enter distance(m)", "4000");
+    dist = prompt("Please enter distance(m)", "4000");
 }
 var url = '<a href="http://www.movescount.com/moves/move'+suunto.move.moveData.moveID+'">Movescount</a>';
 
