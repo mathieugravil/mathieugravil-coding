@@ -95,7 +95,7 @@ def xml2sqlite(filename, db_file):
                               # Duration in s
                               # Ascent in m
                               # Descent in m
-                              # Temperature in Kelvin => T°= T in  Kelvin -273.15
+                              # Temperature in Kelvin => T= T in  Kelvin -273.15
                               # UTC : YYYY-MM-DDTHH:mm:ssZ
                               # SampleType : gps-base : NavType , NavValid  , NavTypeExplanation , <Satellites>, GPSAltitude , GPSHeading , GPSSpeed , GpsHDOP , NumberOfSatellites , Latitude , Longitude , EHPE , Time , UTC
                               #              gps-small : NumberOfSatellites , Latitude , Longitude , EHPE , Time , UTC
@@ -212,7 +212,7 @@ def xml2csv(filename):
                       # Duration in s
                       # Ascent in m
                       # Descent in m
-                      # Temperature in Kelvin => T°= T in  Kelvin -273.15
+                      # Temperature in Kelvin => T= T in  Kelvin -273.15
                       # UTC : YYYY-MM-DDTHH:mm:ssZ
                       # SampleType : gps-base : NavType , NavValid  , NavTypeExplanation , <Satellites>, GPSAltitude , GPSHeading , GPSSpeed , GpsHDOP , NumberOfSatellites , Latitude , Longitude , EHPE , Time , UTC
                       #              gps-small : NumberOfSatellites , Latitude , Longitude , EHPE , Time , UTC

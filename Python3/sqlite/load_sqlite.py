@@ -5,7 +5,8 @@ import re
 import sys
 
 def create_table_from_csv(filename,tablename,db_file, file_cmd):
-  spamReader = csv.reader(open(filename, newline='\n'), delimiter=';')
+  #spamReader = csv.reader(open(filename, newline='\n'), delimiter=';')
+  spamReader = csv.reader(open(filename), delimiter=';')
   fic = open (str(file_cmd), "a")
   i=0
   max_lenght= []
@@ -52,7 +53,7 @@ def create_table_from_csv(filename,tablename,db_file, file_cmd):
     DLL=DLL+""+str(label[l])+" "+str(typ[l])+"("+str(max_lenght[l])+"),\n"
   DLL=DLL+""+str(label[len(max_lenght)-1])+" "+str(typ[len(max_lenght)-1])+"("+str(max_lenght[len(max_lenght)-1])+")\n"
   DLL=DLL+");"
- # DLL=DLL+" PRIMARY KEY (`id"+str(tablename)+"`));"
+  #DLL=DLL+" PRIMARY KEY (`id"+str(tablename)+"`));"
   print(str(DLL))
   cursor.execute(str(DLL))
   cnx.commit()
@@ -62,7 +63,8 @@ def create_table_from_csv(filename,tablename,db_file, file_cmd):
   fic.close
 
 def insertfromcsv(db_file,tablename,filename,header,file_cmd):
-  spamReader = csv.reader(open(filename, newline='\n'), delimiter=';')
+  #spamReader = csv.reader(open(filename, newline='\n'), delimiter=';')
+  spamReader = csv.reader(open(filename), delimiter=';')
   i=0
   fic = open (str(file_cmd), "a")
   cnx = sqlite3.connect(db_file)
@@ -79,7 +81,7 @@ def insertfromcsv(db_file,tablename,filename,header,file_cmd):
       fic.write(str(INSERT_CMD)+"\n")
       cursor.execute(str(INSERT_CMD))
       cnx.commit()
-      INSERT_CMD="INSERT INTO `"+tablename+"` VALUES (  "
+      INSERT_CMD="INSERT INTO `"+tablename+"`  VALUES (  "
     i+=1
   fic.close
   cursor.close()
@@ -99,8 +101,10 @@ def main():
     print ("You must supply a db file name.")
     sys.exit(2)
   file_cmd="commad.sql"
-  create_table_from_csv(csv_file,"DOC",db_file,file_cmd)
-  insertfromcsv(db_file,"DOC",csv_file,"Y",file_cmd)
+  table_name=csv_file.split('.',1)
+  print table_name 
+  create_table_from_csv(csv_file,table_name[0],db_file,file_cmd)
+  insertfromcsv(db_file,table_name[0],csv_file,"Y",file_cmd)
 
 
 if __name__ == "__main__":
