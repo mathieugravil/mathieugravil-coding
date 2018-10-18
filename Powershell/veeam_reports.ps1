@@ -1,6 +1,6 @@
-﻿$veeam_em="opgsfr-wpavea01.ostc.cloud.corp.local"
-$myuser="OSTC\cfadmin"
-$secpasswd = ConvertTo-SecureString “C3@dm1nVnW” -AsPlainText -Force
+﻿$veeam_em="opgsf.cloud.corp.local"
+$myuser="bobon"
+$secpasswd = ConvertTo-SecureString “toto” -AsPlainText -Force
 $mycreds = New-Object System.Management.Automation.PSCredential ($myuser, $secpasswd)
 
 

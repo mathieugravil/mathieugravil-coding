@@ -96,10 +96,10 @@ $fs.Dispose();
 }
 
 $mytimestamp=$(Get-Date  -f yyyyMMddHHmmss )
- $myscvmmlist=@('opgsfr-wpavmm01.ostc.cloud.corp.local', 'opgsfr-wpavmm02.ostc.cloud.corp.local')
+ $myscvmmlist=@('dsqdcloud.corp.local', 'opgstc.cloud.corp.local')
 
-$myuser="OSTC\cfadmin"
-$secpasswd = ConvertTo-SecureString “C3@dm1nVnW” -AsPlainText -Force
+$myuser="bobo"
+$secpasswd = ConvertTo-SecureString “toto” -AsPlainText -Force
 $mycreds = New-Object System.Management.Automation.PSCredential ($myuser, $secpasswd)
 
 foreach ( $myscvmm in $myscvmmlist )
