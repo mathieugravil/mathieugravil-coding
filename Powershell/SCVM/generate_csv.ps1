@@ -1,11 +1,8 @@
-﻿
-####################################################
-function Get-ESX($myscvmm, $mydbfile )
+﻿####################################################
+function Get-ESX($myscvmm, $mydbfile, $mycreds )
 ####################################################
 {
-
-
-$list_esx=Get-SCVMHost -VMMServer $myscvmm
+$list_esx=Get-SCVMHost -VMMServer $myscvmm  | where-object  {$_.DomainName -eq "ostc.cloud.corp.local" }
 
 $path = [System.IO.Path]::Combine($Env:TEMP,$mydbfile)
 $mode = [System.IO.FileMode]::Append
@@ -14,13 +11,22 @@ $sharing = [IO.FileShare]::Read
 
 $fs = New-Object IO.FileStream($path, $mode, $access, $sharing)
 $sw = New-Object System.IO.StreamWriter($fs)
-write-Host "VCENTER;PATH;Cluster;name;model;numcpu;memory_gb;version"
-$sw.WriteLine("VCENTER;PATH;Cluster;name;model;numcpu;memory_gb;version")
+write-Host "SCVMM;PATH;Cluster;name;numcpu;memory_gb;version;KBs;KBdetails"
+$sw.WriteLine("SCVMM;PATH;Cluster;name;numcpu;memory_gb;version;KBs;KBdetails")
 
 Foreach ( $ESX in $list_esx)
 {
-write-Host "$myscvmm;$($ESX.VMHostGroup);$($ESX.HostCluster);$($ESX.Name);unknow;$($ESX.LogicalProcessorCount);$([Math]::Round($($ESX.TotalMemory)/1024/1024/1024));$($ESX.HyperVVersion )"
-$sw.WriteLine("$myscvmm;$($ESX.VMHostGroup);$($ESX.HostCluster);$($ESX.Name);unknow;$($ESX.LogicalProcessorCount);$([Math]::Round($($ESX.TotalMemory)/1024/1024/1024));$($ESX.HyperVVersion )")
+ $result = Get-HotFix -ComputerName $ESX  -Credential $mycreds| select HotFixID, @{N="myDate";E={  $(Get-Date $_.InstalledOn -Format 'dd/MM/yyyy')}}
+ $mykbs=""
+ $mydetails=""
+ Foreach ( $kb in $result)
+ {
+ $mykbs+=$kb.HotFixID+" "
+ $mydetails+=$kb.HotFixID+"_"+$kb.myDate+"#"
+ }
+ # $KB = [system.String]::Join("#", $result)
+write-Host "$myscvmm;$($ESX.VMHostGroup);$($ESX.HostCluster);$($ESX.Name);$($ESX.LogicalProcessorCount);$([Math]::Round($($ESX.TotalMemory)/1024/1024/1024));$($ESX.HyperVVersion );$mykbs;$mydetails"
+$sw.WriteLine("$myscvmm;$($ESX.VMHostGroup);$($ESX.HostCluster);$($ESX.Name);$($ESX.LogicalProcessorCount);$([Math]::Round($($ESX.TotalMemory)/1024/1024/1024));$($ESX.HyperVVersion );$mykbs;$mydetails")
 
 }
 $sw.Dispose();
@@ -63,42 +69,23 @@ Write-Host $myclus
 $fs.Dispose();
 }
 ####################################################
-function Get-SCVM($myscvmm, $mydbfile)
+function Get-HOTfixes($myscvmm,$mydbfile,$mycreds )
 ####################################################
 {
-
-  $sw.WriteLine(" SCVMM ; Cluster ; HOST ;VM;STATE;VCPU;DynMem;MemAssigned;MemoryMaximum;SizeOfSystemFiles;os ")
-
-   Get-SCVirtualMachine | Select $myscvmm, HostGroupPath, SourceObjectType,CreationTime, CPUCount , MemoryAssignedMB, TotalSize, OperatingSystem  | Export-Csv -Path $mydbfile
-
-}
-
-####################################################
-function Get-HOTfixes($mydbfile )
-####################################################
-{
-$hosts_list=@("OPGSFR-WPBS1301.ostc.cloud.corp.local","opgsfr-wpbs1101.ostc.cloud.corp.local","OPGSFR-WPBS1201.ostc.cloud.corp.local","OPGSFR-WPBS1202.ostc.cloud.corp.local","opgsfr-wpbs1102.ostc.cloud.corp.local","OPGSFR-WPBS1302.ostc.cloud.corp.local","OPGSFR-WPBS1303.ostc.cloud.corp.local","OPGSFR-WPBS1203.ostc.cloud.corp.local","OPGSFR-WPBS1103.ostc.cloud.corp.local","OPGSFR-WPGC2105.ostc.cloud.corp.local","OPGSFR-WPGS3101.ostc.cloud.corp.local","OPGSFR-WPGS3104.ostc.cloud.corp.local","OPGSFR-WPGC2106.ostc.cloud.corp.local","OPGSFR-WPGC2101.ostc.cloud.corp.local","OPGSFR-WPGC2102.ostc.cloud.corp.local","OPGSFR-WPGS3106.ostc.cloud.corp.local","OPGSFR-WPGC2104.ostc.cloud.corp.local","OPGSFR-WPGS3105.ostc.cloud.corp.local","OPGSFR-WPGC2103.ostc.cloud.corp.local","OPGSFR-WPGS3103.ostc.cloud.corp.local","OPGSFR-WPGS3102.ostc.cloud.corp.local","OPGSFR-WPBS1110.ostc.cloud.corp.local","OPGSFR-WPBS1310.ostc.cloud.corp.local","OPGSFR-WPBS1210.ostc.cloud.corp.local","OPGSFR-WPBC1102.ostc.cloud.corp.local","OPGSFR-WPBC1101.ostc.cloud.corp.local","opgsfr-wpbc1202.ostc.cloud.corp.local","OPGSFR-WPBC1301.ostc.cloud.corp.local","OPGSFR-WPBC1203.ostc.cloud.corp.local","OPGSFR-WPBC1201.ostc.cloud.corp.local","OPGSFR-WPBC1103.ostc.cloud.corp.local","OPGSFR-WPBC1303.ostc.cloud.corp.local","OPGSFR-WPBC1302.ostc.cloud.corp.local","OPGSFR-WPBC1110.ostc.cloud.corp.local","OPGSFR-WPBC1210.ostc.cloud.corp.local","OPGSFR-WPBC1310.ostc.cloud.corp.local","opgsbe-wphvbr01.ostc.cloud.corp.local","OPGSBE-WPHVBR02.ostc.cloud.corp.local","OPGSFR-WPBS1109.ostc.cloud.corp.local","OPGSFR-WPBS1209.ostc.cloud.corp.local","OPGSFR-WPBS1309.ostc.cloud.corp.local","OPGSFR-WPBS1206.ostc.cloud.corp.local","opgsfr-wpbs1306.ostc.cloud.corp.local","OPGSFR-WPBS1106.ostc.cloud.corp.local","OPGSFR-WPBS1105.ostc.cloud.corp.local","OPGSFR-WPBS1205.ostc.cloud.corp.local","opgsfr-wpbs1305.ostc.cloud.corp.local","OPGSFR-WPBC1209.ostc.cloud.corp.local","OPGSFR-WPBC1309.ostc.cloud.corp.local","opgsfr-wpbc1109.ostc.cloud.corp.local","opgsbe-wphvfe01.ostc.cloud.corp.local","opgsbe-wphvfe02.ostc.cloud.corp.local")
-
-$myuser="OSTC\AJ0242224"
-$secpasswd = ConvertTo-SecureString “He@rtbleed09” -AsPlainText -Force
-$mycreds = New-Object System.Management.Automation.PSCredential ($myuser, $secpasswd)
-
+$hosts_list= Get-SCVMHost -VMMServer $myscvmm | where-object  {$_.DomainName -eq "ostc.cloud.corp.local" }| select -ExpandProperty  Name
 $path = [System.IO.Path]::Combine($Env:TEMP,$mydbfile)
 $mode = [System.IO.FileMode]::Append
 $access = [System.IO.FileAccess]::Write
 $sharing = [IO.FileShare]::Read
-
 $fs = New-Object IO.FileStream($path, $mode, $access, $sharing)
 $sw = New-Object System.IO.StreamWriter($fs)
 write-Host "PSComputerName;HotFixID;InstalledOn"
 $sw.WriteLine("PSComputerName;HotFixID;InstalledOn")
  foreach($ESX in $hosts_list)
   {
-
  $result = Get-HotFix -ComputerName $ESX  -Credential $mycreds 
  foreach($kb in $result)
  {
-
   $mydate = Get-Date $kb.InstalledOn -Format 'dd/MM/yyyy'
   $sw.WriteLine("$($kb.PSComputerName);$($kb.HotFixID);$mydate")
   write-Host "$($kb.PSComputerName);$($kb.HotFixID);$mydate"
@@ -106,26 +93,69 @@ $sw.WriteLine("PSComputerName;HotFixID;InstalledOn")
  }
   $sw.Dispose();
 $fs.Dispose();
+}
+Add-PSSnapin VeeamPSSnapin
+$mytimestamp=$(Get-Date  -f yyyyMMddHHmmss )
+ $myscvmmlist=@('opgsfd.corp.local', 'opgsfd.corp.local')
+ $veeam_em="opgsfd.corp.local"
+$myuser="toto"
+$secpasswd = ConvertTo-SecureString “titi” -AsPlainText -Force
+$mycreds = New-Object System.Management.Automation.PSCredential ($myuser, $secpasswd)
 
+
+Connect-VBRServer -Credential $mycreds -Server $veeam_em 
+foreach ( $myscvmm in $myscvmmlist )
+ {
+ $myconn=Get-SCVMMServer -Credential $mycreds -ComputerName $myscvmm
+#$mydbfile = "D:\Local\DB\HYPER_"+$myscvmm+"_$mytimestamp.csv"
+#Get-ESX -myscvmm $myscvmm -myuser $myuser -mypasswd $mypasswd -mydbfile $mydbfile -mycreds $mycreds
+
+
+$i = 0
+$report = @()
+$mydbfile = "D:\Local\DB\BACVM_"+$myscvmm+"_$mytimestamp.csv"
+write $mytimestamp
+$mylist_vms= Get-SCVirtualMachine -VMMServer $myconn | Where-Object { $_.VirtualizationPlatform -eq "HyperV"}
+$report=foreach($vm in $mylist_vms){
+    $backup=Get-VBRRestorePoint -Name $vm.Name |
+            Sort-Object –Property CreationTime –Descending |
+            Select -First 1 | 
+            select Type, CreationTimeUtc, @{N="Size_GB";E={[Math]::Round($_.ApproxSize/1024/1024/1024)}}
+    #New-Object PSObject -Property  
+    [PSCustomObject]@{
+    SCVMM = $myscvmm
+    HostGroupPath = $vm.HostGroupPath
+    TYPE =  $vm.HostGroupPath.split('\')[1]
+    SLA =  $vm.HostGroupPath.split('\')[2]
+    SITE = $vm.HostGroupPath.split('\')[3]
+    Cluster = Get-SCVMHost  -ComputerName $vm.VMHost  | select -ExpandProperty HostCluster
+    VMHost = $vm.VMHost
+    Tag = $vm.Tag
+    Name = $vm.Name
+    CreationTime = $vm.CreationTime
+    CPUCount = $vm.CPUCount
+    MemoryAssignedMB = $vm.MemoryAssignedMB
+    Sto_GB = [Math]::Round($vm.TotalSize/1024/1024/1024)
+    OperatingSystem = $vm.OperatingSystem
+    status =  $vm.status
+    Backup_type = $backup.Type
+    Backup_date =  $backup.CreationTimeUtc
+    Backup_size_GB = $backup.Size_GB
+    }
+}
+$report | Export-Csv -Path $mydbfile 
+
+#$mylist_vms | Select @{N="SCVMM";E={$myscvmm}},HostGroupPath, 
+#@{N ="TYPE"  ;E= { $_.HostGroupPath.split('\')[1]}},
+#@{N ="SLA"  ;E= { $_.HostGroupPath.split('\')[2]}},
+# @{N ="SITE"  ;E= { $_.HostGroupPath.split('\')[3]}},
+# @{N="Cluster";E={Get-VMHost  -ComputerName $_.VMHost  | select -ExpandProperty HostCluster}},
+# VMHost,Tag,Name,CreationTime, CPUCount , MemoryAssignedMB,
+#  @{Name="Used_GB"; E={$_.TotalSize/1024/1024/1024} } , OperatingSystem, status  | Export-Csv -Path $mydbfile
+
+#$mydbfile = "D:\Local\DB\HOST_PATCHS_"+$myscvmm+"_$mytimestamp.csv"
+#Get-HOTfixes -myscvmm $myscvmm -mydbfile $mydbfile -mycreds $mycreds
 }
 
-$mytimestamp=$(Get-Date  -f yyyyMMddHHmmss )
- $myscvmmlist=@('opgsfr-wpavmm01.ostc.cloud.corp.local', 'opgsfr-wpavmm02.ostc.cloud.corp.local')
+Disconnect-VBRServer 
 
-#$myuser="OSTC\AJ0242224"
-#$secpasswd = ConvertTo-SecureString “He@rtbleed09” -AsPlainText -Force
-#$mycreds = New-Object System.Management.Automation.PSCredential ($myuser, $secpasswd)
-
- #foreach ( $myscvmm in $myscvmmlist )
-# {
- #Get-SCVMMServer -Credential $mycreds -ComputerName $myscvmm
-#$mydbfile = "D:\Local\DB\HYPER_"+$myscvmm+"_$mytimestamp.csv"
-#Get-ESX -myscvmm $myscvmm -myuser $myuser -mypasswd $mypasswd -mydbfile $mydbfile
-#$mydbfile = "D:\Local\DB\VM_"+$myscvmm+"_$mytimestamp.csv"
-#Get-MGRVM  -myscvmm $myscvmm  -mydbfile $mydbfile
-# Get-SCVirtualMachine | Select @{N="SCVMM";E={$myscvmm}},@{N ="TYPE"  ;E= { $_.HostGroupPath.split('\')[1]}},@{N ="SLA"  ;E= { $_.HostGroupPath.split('\')[2]}}, @{N ="SITE"  ;E= { $_.HostGroupPath.split('\')[3]}},VMHost,Tag, ObjectType,Name,CreationTime, CPUCount , MemoryAssignedMB, @{Name="Used_GB"; E={$_.TotalSize/1024/1024/1024} } , OperatingSystem  | Export-Csv -Path $mydbfile
-
-
-#}
-$mydbfile = "D:\Local\DB\HOST_PAtch_"+"_$mytimestamp.csv"
-Get-HOTfixes( $mydbfile )
