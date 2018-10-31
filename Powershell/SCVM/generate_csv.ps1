@@ -97,30 +97,31 @@ $fs.Dispose();
 Add-PSSnapin VeeamPSSnapin
 $mytimestamp=$(Get-Date  -f yyyyMMddHHmmss )
  $myscvmmlist=@('opgsfd.corp.local', 'opgsfd.corp.local')
- $veeam_em="opgsfd.corp.local"
+  $veeam_em_list=@('opgsfd.corp.local','ud.corp.local','loud.corp.local')
 $myuser="toto"
 $secpasswd = ConvertTo-SecureString “titi” -AsPlainText -Force
 $mycreds = New-Object System.Management.Automation.PSCredential ($myuser, $secpasswd)
-
+$today = Get-Date
+$allbackup=@()
+foreach( $veeam_em in $veeam_em_list){
 Disconnect-VBRServer
 Connect-VBRServer -Credential $mycreds -Server $veeam_em 
-$backup=Get-VBRRestorePoint
+$allbackup+=Get-VBRRestorePoint
 Disconnect-VBRServer 
+}
 
 foreach ( $myscvmm in $myscvmmlist )
  {
  $myconn=Get-SCVMMServer -Credential $mycreds -ComputerName $myscvmm
-#$mydbfile = "D:\Local\DB\HYPER_"+$myscvmm+"_$mytimestamp.csv"
-#Get-ESX -myscvmm $myscvmm -myuser $myuser -mypasswd $mypasswd -mydbfile $mydbfile -mycreds $mycreds
+$mydbfile = "D:\Local\DB\HYPER_"+$myscvmm+"_$mytimestamp.csv"
+Get-ESX -myscvmm $myscvmm -myuser $myuser -mypasswd $mypasswd -mydbfile $mydbfile -mycreds $mycreds
 
-
-$i = 0
 $report = @()
 $mydbfile = "D:\Local\DB\BACVM_"+$myscvmm+"_$mytimestamp.csv"
 write $mytimestamp
 $mylist_vms= Get-SCVirtualMachine -VMMServer $myconn | Where-Object { $_.VirtualizationPlatform -eq "HyperV"}
 $report=foreach($vm in $mylist_vms){
-    $vmbackup = $backup | Where-Object { $_.Name -eq $vm.Name} |
+    $vmbackup = $allbackup | Where-Object { $_.Name -eq $vm.Name} |
             Sort-Object –Property CreationTime –Descending |
             Select -First 1 | 
             select Type, CreationTimeUtc, @{N="Size_GB";E={[Math]::Round($_.ApproxSize/1024/1024/1024)}} 
@@ -148,3 +149,6 @@ $report=foreach($vm in $mylist_vms){
 $report | Export-Csv -Path $mydbfile 
 
 }
+
+
+
