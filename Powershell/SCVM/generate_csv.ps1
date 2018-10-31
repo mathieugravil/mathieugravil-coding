@@ -102,8 +102,11 @@ $myuser="toto"
 $secpasswd = ConvertTo-SecureString “titi” -AsPlainText -Force
 $mycreds = New-Object System.Management.Automation.PSCredential ($myuser, $secpasswd)
 
-
+Disconnect-VBRServer
 Connect-VBRServer -Credential $mycreds -Server $veeam_em 
+$backup=Get-VBRRestorePoint
+Disconnect-VBRServer 
+
 foreach ( $myscvmm in $myscvmmlist )
  {
  $myconn=Get-SCVMMServer -Credential $mycreds -ComputerName $myscvmm
@@ -117,11 +120,10 @@ $mydbfile = "D:\Local\DB\BACVM_"+$myscvmm+"_$mytimestamp.csv"
 write $mytimestamp
 $mylist_vms= Get-SCVirtualMachine -VMMServer $myconn | Where-Object { $_.VirtualizationPlatform -eq "HyperV"}
 $report=foreach($vm in $mylist_vms){
-    $backup=Get-VBRRestorePoint -Name $vm.Name |
+    $vmbackup = $backup | Where-Object { $_.Name -eq $vm.Name} |
             Sort-Object –Property CreationTime –Descending |
             Select -First 1 | 
-            select Type, CreationTimeUtc, @{N="Size_GB";E={[Math]::Round($_.ApproxSize/1024/1024/1024)}}
-    #New-Object PSObject -Property  
+            select Type, CreationTimeUtc, @{N="Size_GB";E={[Math]::Round($_.ApproxSize/1024/1024/1024)}} 
     [PSCustomObject]@{
     SCVMM = $myscvmm
     HostGroupPath = $vm.HostGroupPath
@@ -138,24 +140,11 @@ $report=foreach($vm in $mylist_vms){
     Sto_GB = [Math]::Round($vm.TotalSize/1024/1024/1024)
     OperatingSystem = $vm.OperatingSystem
     status =  $vm.status
-    Backup_type = $backup.Type
-    Backup_date =  $backup.CreationTimeUtc
-    Backup_size_GB = $backup.Size_GB
+    Backup_type = $vmbackup.Type
+    Backup_date =  $vmbackup.CreationTimeUtc
+    Backup_size_GB = $vmbackup.Size_GB
     }
 }
 $report | Export-Csv -Path $mydbfile 
 
-#$mylist_vms | Select @{N="SCVMM";E={$myscvmm}},HostGroupPath, 
-#@{N ="TYPE"  ;E= { $_.HostGroupPath.split('\')[1]}},
-#@{N ="SLA"  ;E= { $_.HostGroupPath.split('\')[2]}},
-# @{N ="SITE"  ;E= { $_.HostGroupPath.split('\')[3]}},
-# @{N="Cluster";E={Get-VMHost  -ComputerName $_.VMHost  | select -ExpandProperty HostCluster}},
-# VMHost,Tag,Name,CreationTime, CPUCount , MemoryAssignedMB,
-#  @{Name="Used_GB"; E={$_.TotalSize/1024/1024/1024} } , OperatingSystem, status  | Export-Csv -Path $mydbfile
-
-#$mydbfile = "D:\Local\DB\HOST_PATCHS_"+$myscvmm+"_$mytimestamp.csv"
-#Get-HOTfixes -myscvmm $myscvmm -mydbfile $mydbfile -mycreds $mycreds
 }
-
-Disconnect-VBRServer 
-
